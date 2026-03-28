@@ -189,6 +189,13 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                         # ==========================================
                         # 基于一阶导数 (斜率) 阈值的容忍度搜寻算法
                         # ==========================================
+                        # ==========================================
+                        # 1. 动态起伏与抗噪门槛计算
+                        # ==========================================
+                        regional_baseline = np.percentile(y_smooth, 10)
+                        total_relief = central_peak_y - regional_baseline
+                        BOUNCE_MIN_HEIGHT = max(100.0, 0.05 * total_relief)
+                        
                         dy_dx = np.gradient(y_smooth, x_salt_surf)
                         abs_slope = np.abs(dy_dx)
                         
@@ -219,8 +226,8 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                             else:
                                 consecutive_flat = 0
                                 
-                            # 阻断判定 1: 遇谷底反弹 (连续爬升外围坡)
-                            if consecutive_up >= PATIENCE:
+                            # 阻断判定 1: 遇谷底有效反弹 (满足趋势且超出门槛避免假阳性)
+                            if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
                                 left_min_idx = current_min_idx
                                 break
                                 
@@ -251,12 +258,32 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                             else:
                                 consecutive_flat = 0
                                 
-                            if consecutive_up >= PATIENCE:
+                            # 阻断判定 1: 遇谷底有效反弹 (满足趋势且超出门槛避免假阳性)
+                            if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
                                 right_min_idx = current_min_idx
                                 break
                                 
                             if consecutive_flat >= PATIENCE:
                                 right_min_idx = max(i - PATIENCE // 2, central_peak_idx + 1)
+                                break
+                        
+                        # ==========================================
+                        # 3. 基准弦长截断法 (强制等高对齐解决不对称颈缩发育)
+                        # ==========================================
+                        temp_left_idx = left_min_idx
+                        temp_right_idx = right_min_idx
+                        target_baseline_y = max(y_smooth[temp_left_idx], y_smooth[temp_right_idx])
+                        
+                        # 左侧重新沿壁切割
+                        for i in range(temp_left_idx, central_peak_idx):
+                            if y_smooth[i] >= target_baseline_y:
+                                left_min_idx = i
+                                break
+                                
+                        # 右侧重新沿壁切割
+                        for i in range(temp_right_idx, central_peak_idx, -1):
+                            if y_smooth[i] >= target_baseline_y:
+                                right_min_idx = i
                                 break
                         
                         left_base_x = x_salt_surf[left_min_idx]
