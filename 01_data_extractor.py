@@ -186,8 +186,38 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                     right_profile_y = y_smooth[central_peak_idx:]
                     
                     if len(left_profile_y) > 0 and len(right_profile_y) > 0:
-                        left_min_idx = np.argmin(left_profile_y)
-                        right_min_idx = central_peak_idx + np.argmin(right_profile_y)
+                        # ==========================================
+                        # 基于一阶导数 (斜率) 阈值的容忍度搜寻算法
+                        # ==========================================
+                        dy_dx = np.gradient(y_smooth, x_salt_surf)
+                        abs_slope = np.abs(dy_dx)
+                        
+                        SLOPE_THRESHOLD = 0.05
+                        PATIENCE = 5
+                        
+                        # 1. 搜寻左侧基底边界 (向左递进遍历)
+                        left_min_idx = np.argmin(left_profile_y)  # 安全回退 (Fallback): 默认原有极小值
+                        consecutive_flat = 0
+                        for i in range(central_peak_idx - 1, -1, -1):
+                            if abs_slope[i] < SLOPE_THRESHOLD:
+                                consecutive_flat += 1
+                                if consecutive_flat >= PATIENCE:
+                                    left_min_idx = min(i + PATIENCE // 2, central_peak_idx - 1)
+                                    break
+                            else:
+                                consecutive_flat = 0
+                                
+                        # 2. 搜寻右侧基底边界 (向右递进遍历)
+                        right_min_idx = central_peak_idx + np.argmin(right_profile_y)  # 安全回退 (Fallback)
+                        consecutive_flat = 0
+                        for i in range(central_peak_idx + 1, len(y_smooth)):
+                            if abs_slope[i] < SLOPE_THRESHOLD:
+                                consecutive_flat += 1
+                                if consecutive_flat >= PATIENCE:
+                                    right_min_idx = max(i - PATIENCE // 2, central_peak_idx + 1)
+                                    break
+                            else:
+                                consecutive_flat = 0
                         
                         left_base_x = x_salt_surf[left_min_idx]
                         left_base_y = y_smooth[left_min_idx]
