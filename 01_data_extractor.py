@@ -195,29 +195,69 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                         SLOPE_THRESHOLD = 0.05
                         PATIENCE = 5
                         
-                        # 1. 搜寻左侧基底边界 (向左递进遍历)
+                        # 1. 搜寻左侧基底边界 (向左递进遍历: 包含斜率阻断与谷底反弹阻断)
                         left_min_idx = np.argmin(left_profile_y)  # 安全回退 (Fallback): 默认原有极小值
                         consecutive_flat = 0
+                        consecutive_up = 0
+                        current_min_y = y_smooth[central_peak_idx]
+                        current_min_idx = central_peak_idx
+                        
                         for i in range(central_peak_idx - 1, -1, -1):
+                            current_y = y_smooth[i]
+                            
+                            # 更新谷底与计算连续上升(反弹)
+                            if current_y <= current_min_y:
+                                current_min_y = current_y
+                                current_min_idx = i
+                                consecutive_up = 0
+                            else:
+                                consecutive_up += 1
+                            
+                            # 计算连续平坦(斜率)
                             if abs_slope[i] < SLOPE_THRESHOLD:
                                 consecutive_flat += 1
-                                if consecutive_flat >= PATIENCE:
-                                    left_min_idx = min(i + PATIENCE // 2, central_peak_idx - 1)
-                                    break
                             else:
                                 consecutive_flat = 0
                                 
-                        # 2. 搜寻右侧基底边界 (向右递进遍历)
+                            # 阻断判定 1: 遇谷底反弹 (连续爬升外围坡)
+                            if consecutive_up >= PATIENCE:
+                                left_min_idx = current_min_idx
+                                break
+                                
+                            # 阻断判定 2: 地形连续平坦
+                            if consecutive_flat >= PATIENCE:
+                                left_min_idx = min(i + PATIENCE // 2, central_peak_idx - 1)
+                                break
+                                
+                        # 2. 搜寻右侧基底边界 (向右递进遍历: 包含斜率阻断与谷底反弹阻断)
                         right_min_idx = central_peak_idx + np.argmin(right_profile_y)  # 安全回退 (Fallback)
                         consecutive_flat = 0
+                        consecutive_up = 0
+                        current_min_y = y_smooth[central_peak_idx]
+                        current_min_idx = central_peak_idx
+                        
                         for i in range(central_peak_idx + 1, len(y_smooth)):
+                            current_y = y_smooth[i]
+                            
+                            if current_y <= current_min_y:
+                                current_min_y = current_y
+                                current_min_idx = i
+                                consecutive_up = 0
+                            else:
+                                consecutive_up += 1
+                                
                             if abs_slope[i] < SLOPE_THRESHOLD:
                                 consecutive_flat += 1
-                                if consecutive_flat >= PATIENCE:
-                                    right_min_idx = max(i - PATIENCE // 2, central_peak_idx + 1)
-                                    break
                             else:
                                 consecutive_flat = 0
+                                
+                            if consecutive_up >= PATIENCE:
+                                right_min_idx = current_min_idx
+                                break
+                                
+                            if consecutive_flat >= PATIENCE:
+                                right_min_idx = max(i - PATIENCE // 2, central_peak_idx + 1)
+                                break
                         
                         left_base_x = x_salt_surf[left_min_idx]
                         left_base_y = y_smooth[left_min_idx]
