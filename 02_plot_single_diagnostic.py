@@ -16,14 +16,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-FINAL_OUTPUT_DIR = r"E:\0.Information\4.Temp\StructLab\盐构造部分\实验\68"
-EXPERIMENT_GROUPS = [
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '150'), 'label': r'$v_e = 150 \ m \cdot s^{-1}$', 'color': 'b', 'marker': 'o'},
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '300'), 'label': r'$v_e = 300 \ m \cdot s^{-1}$', 'color': 'r', 'marker': 's'},
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '600'), 'label': r'$v_e = 600 \ m \cdot s^{-1}$', 'color': 'g', 'marker': '^'}
-]
-
-MAX_SHORTENING_KM = 24.0
+from config import *
 
 # ==========================================
 # 2. 诊断图表渲染核心
@@ -80,7 +73,7 @@ def main():
         ax.tick_params(axis='y', direction='in', left=False, right=True, length=6, width=1.5)
         
         _ = ax.set_xlim(0, MAX_SHORTENING_KM)
-        _ = ax.set_ylim(0, 0.30)
+        _ = ax.set_ylim(0, MAX_ASPECT_RATIO)
         _ = ax.set_xlabel('Shortening (km)', weight='bold') 
         _ = ax.set_ylabel('Aspect ratio', weight='bold') 
         
@@ -150,8 +143,8 @@ def main():
                 shortening = shortening_arr[0] if len(shortening_arr) > 0 else 0.0
                 _ = ax_p.set_title(f'Step: {step} | Shortening: {shortening:.1f} km', fontweight='bold', fontsize=12)
                 
-                _ = ax_p.set_xlim(0, 80000)
-                _ = ax_p.set_ylim(0, 30000) 
+                _ = ax_p.set_xlim(0, MODEL_WIDTH)
+                _ = ax_p.set_ylim(0, MODEL_HEIGHT)
                 _ = ax_p.tick_params(labelsize=10)
                 
             for i in range(num_plots, len(axes_prof)):

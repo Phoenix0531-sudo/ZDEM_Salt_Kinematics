@@ -20,21 +20,8 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-FINAL_OUTPUT_DIR = r"E:\0.Information\4.Temp\StructLab\盐构造部分\实验\68"
-EXPERIMENT_GROUPS = [
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '150'), 'label': r'$v_e = 150 \ m \cdot s^{-1}$', 'color': 'b', 'marker': 'o'},
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '300'), 'label': r'$v_e = 300 \ m \cdot s^{-1}$', 'color': 'r', 'marker': 's'},
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '600'), 'label': r'$v_e = 600 \ m \cdot s^{-1}$', 'color': 'g', 'marker': '^'}
-]
-
-SALT_GROUP_NAME = 'salt'
-PARTICLE_RADIUS = 70.0         
-PARTICLE_AREA = np.pi * (PARTICLE_RADIUS ** 2)
-NUM_BINS = 200                 
-SMOOTHING_WINDOW = 51
-
-NUM_KEY_STAGES = 10
-MAX_SHORTENING_KM = 24.0
+# 已将所有常数项剥离至 config.py
+from config import *
 
 # ==========================================
 # 2. 核心数据解析算法

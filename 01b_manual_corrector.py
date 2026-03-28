@@ -22,18 +22,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-# 目标数据工作目录升级为多路径配置字典
-FINAL_OUTPUT_DIR = r"E:\0.Information\4.Temp\StructLab\盐构造部分\实验\68"
-EXPERIMENT_GROUPS = [
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '150'), 'label': r'$v_e = 150 \ m \cdot s^{-1}$', 'color': 'b', 'marker': 'o'},
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '300'), 'label': r'$v_e = 300 \ m \cdot s^{-1}$', 'color': 'r', 'marker': 's'},
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '600'), 'label': r'$v_e = 600 \ m \cdot s^{-1}$', 'color': 'g', 'marker': '^'}
-]
-
-CSV_FILENAME = 'kinematics_data.csv'
-PKL_FILENAME = 'profiles_cache.pkl'
-
-SMOOTHING_WINDOW = 5
+from config import *
 
 def main():
     # 外层循环包裹：遍历所有的目标实验组
@@ -108,8 +97,8 @@ def main():
             ax.grid(True, linestyle=':', alpha=0.6)
             
             # 绝对固定的坐标轴视口 (防自适应抖动)
-            ax.set_xlim(0, 80000)
-            ax.set_ylim(5000, 25000)
+            ax.set_xlim(0, MODEL_WIDTH)
+            ax.set_ylim(MANUAL_PLOT_Y_MIN, MANUAL_PLOT_Y_MAX)
             
             plt.tight_layout()
             plt.show(block=False)
@@ -186,7 +175,7 @@ def main():
         # 此处必须严格保证 Aspect_Ratio 列中原本可能存在的 NaN 不会被无限扩大，使用 min_periods=1
         if 'Aspect_Ratio' in df.columns:
             df['Aspect_Ratio_Smooth'] = df['Aspect_Ratio'].rolling(
-                window=SMOOTHING_WINDOW, 
+                window=EXTRACT_SMOOTH_WINDOW, 
                 min_periods=1, 
                 center=True
             ).mean()
