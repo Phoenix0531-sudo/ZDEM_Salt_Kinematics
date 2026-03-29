@@ -25,17 +25,17 @@ ZDEM 的离散元计算帧数组通常占据巨量的存储带宽。鉴于本分
 
 ```mermaid
 graph TD
-    subgraph 数据降维与解析层 (Data Extraction Layer)
+    subgraph "数据降维与解析层"
         A([原始 .dat 物理实验帧文件])
         B(01_data_extractor.py)
     end
     
-    subgraph 专家在环与质控层 (Human-in-the-loop QA/QC Layer)
+    subgraph "专家在环与质控层"
         C[(kinematics_data.csv <br> profiles_cache.pkl)]
         D(01b_manual_corrector.py)
     end
     
-    subgraph 多维可视化渲染层 (Visualization Layer)
+    subgraph "多维可视化渲染层"
         E1(02_plot_single_diagnostic.py)
         E2(03_plot_multi_comparison.py)
         F1([单组诊断图谱输出])
