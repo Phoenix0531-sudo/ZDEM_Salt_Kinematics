@@ -30,6 +30,8 @@ MAX_ASPECT_RATIO = 0.30       # 演化曲线高宽比 Y 轴上限
 # ==========================================
 # 3. 离散元物理参数与算法阈值
 # ==========================================
+PUSHING_WALL_SIDE = 'right'   # 侧向挤压墙方位 ('left' 或 'right')
+MIN_RELIEF_THRESHOLD = 200.0  # 盐丘最低有效起伏度 (m)，用于过滤早期噪点
 SALT_GROUP_NAME = 'salt'
 PARTICLE_RADIUS = 70.0        # 颗粒半径
 PARTICLE_AREA = np.pi * (PARTICLE_RADIUS ** 2)

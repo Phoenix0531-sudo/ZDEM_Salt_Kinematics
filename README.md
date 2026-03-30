@@ -5,9 +5,9 @@
 > **摘要 (Abstract)**: 本体系提供了一套针对离散元 (ZDEM) 盐流变模拟的高吞吐量分析管线，旨在将海量原始空间物理帧数据以零损耗模式提取，并持久化为运动学几何特征曲线。该系统采用前端图形渲染与后台数据运算完全解耦的架构，并在管线中段集成嵌入了支持连续反馈的 "专家在环" 人机交互式 (QA/QC) 边界修正组件，最终实现高重现度的学术级出图与多组运动学指标对比。
 
 ## 1. 概述
-本项目提供了一套专为 ZDEM (Z-Discrete Element Method) 盐岩构造模拟结果定制的 Python 数据分析与可视化管线。其核心科学目标在于，通过对模型演化过程中的离散颗粒几何空间信息提取与时间序列追踪，实现从庞大的原始数值解文件（`.dat`）向高维运动学指标演化曲线（如高宽比 Aspect Ratio、挤压量 Shortening 等）的高效降维转化。
+本项目提供了一套专为 ZDEM (Z-Discrete Element Method) 盐岩构造模拟结果定制的 Python 数据分析与可视化管线。其核心科学目标在于，通过对模型演化过程中的离散颗粒几何空间信息提取与时间序列追踪，实现从庞大的原始数值解文件（`.dat`）向高维运动学指标演化曲线（如高宽比 Aspect Ratio、半宽 Half-Width、起伏度 Relief 等）的高效降维转化。
 
-最新版本大幅度重构了代码架构逻辑，将所有全局常量（软硬件参数）剥离至独立的集约配置文件 `config.py`，并创新性地加入了 `01b_manual_corrector.py` 专家干预辅助模块，以校正离散元计算法中颗粒游离所引发的非典型拓扑误判畸变。
+最新版本大幅度重构了底层运动学抓取逻辑，废除双基点对称截断，全面升级为**“基于构造不对称性的单侧锚定 (Asymmetric Single-Anchor) 半宽/起伏度提取法”**，以适应挤压墙推覆端的强剪切与强变形环境。同时系统引入 `01b_manual_corrector.py` 提供交互级别的质控组件。
 
 ## 2. 环境依赖 (Dependencies)
 在部署此解析环境前，请确保 Python 解释器中已内置以下核心科学计算堆栈：
@@ -64,7 +64,7 @@ graph TD
 ### ⚙️ `config.py` (全局物理参数与配置中枢)
 接管全计算链路的关键参数空间池化职责：
 - **挂载与流转路径**：中心化封装 `FINAL_OUTPUT_DIR` 与目标参数系字典 `EXPERIMENT_GROUPS`。
-- **空间域与图形成像边界**：锁定全局几何阈值 `MODEL_WIDTH`、`MODEL_HEIGHT`，提供严格锁死的视口防抖极值 `MANUAL_PLOT_Y_MIN/MAX`。
+- **空间域与图形成像边界**：新增挤压墙体方位 `PUSHING_WALL_SIDE` 和发育阈值 `MIN_RELIEF_THRESHOLD` 的配置；锁定全局几何阈值 `MODEL_WIDTH`、`MODEL_HEIGHT`，提供严格锁死的视口防抖极值 `MANUAL_PLOT_Y_MIN/MAX`。
 - **滤波解析算子**：固化系统全局窗长参数 (`SMOOTHING_WINDOW`)、统计栅格网格 (`NUM_BINS`)，以及核心交互几何约束的离散域基础元素半径 (`PARTICLE_RADIUS`)。
 
 ### 📌 `01_data_extractor.py` (后台并发数据提取器)
@@ -86,7 +86,7 @@ graph TD
 
 ### 📌 `03_plot_multi_comparison.py` (多组联合演化对比展现)
 出版级学术总视图的投射器：
-- 基于字典配置自动检索全库各物理环境参数序列的可用性与拓扑特性，通过单一视图渲染合并所有群组动态趋势至 `Multi_Kinematic_Evolution_Plot.png` (并提供原生矢量的 `.pdf`)。
+- 基于字典配置自动检索全库各物理环境参数序列的可用性与拓扑特性，现在会同步输出 Width、Relief 和 Aspect Ratio 的 **3-Panel 联合学术图谱** (纵向并排子图并共享 X 轴)，通过单一视图渲染至 `Multi_Kinematic_Evolution_Plot.png` (并提供原生矢量的 `.pdf`)。
 - **极简语义与纯净表达**：深度应用无干扰范式，即刻剔除不传递信息的余冗框架结构；依照实验断裂界点分离预先侵扰与后延脱溢期路径，匹配全图自动派生灰阶虚拟图例（Proxy Artist）。
 
 ## 4. 标准复现协议 (Standard Reproduction Protocol)

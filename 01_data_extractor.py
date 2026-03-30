@@ -172,12 +172,12 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                     left_profile_y = y_smooth[:central_peak_idx]
                     right_profile_y = y_smooth[central_peak_idx:]
                     
+                    temp_width = 0.0
+                    temp_relief = 0.0
+                    
                     if len(left_profile_y) > 0 and len(right_profile_y) > 0:
                         # ==========================================
-                        # 基于一阶导数 (斜率) 阈值的容忍度搜寻算法
-                        # ==========================================
-                        # ==========================================
-                        # 1. 动态起伏与抗噪门槛计算
+                        # 基于一阶导数 (斜率) 阈值与单侧锚定法 (Asymmetric Single-Anchor)
                         # ==========================================
                         regional_baseline = np.percentile(y_smooth, 10)
                         total_relief = central_peak_y - regional_baseline
@@ -189,127 +189,112 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                         SLOPE_THRESHOLD = 0.05
                         PATIENCE = 5
                         
-                        # 1. 搜寻左侧基底边界 (向左递进遍历: 包含斜率阻断与谷底反弹阻断)
-                        left_min_idx = np.argmin(left_profile_y)  # 安全回退 (Fallback): 默认原有极小值
-                        consecutive_flat = 0
-                        consecutive_up = 0
-                        current_min_y = y_smooth[central_peak_idx]
-                        current_min_idx = central_peak_idx
+                        base_x, base_y = x_salt_surf[0], y_smooth[0] # Fallback初始化
                         
-                        for i in range(central_peak_idx - 1, -1, -1):
-                            current_y = y_smooth[i]
+                        # 判断挤压壁朝向，选择未变形端作为稳定基点锚定
+                        if PUSHING_WALL_SIDE.lower() == 'right':
+                            # 挤压墙在右侧，向左搜寻稳定的左侧基点
+                            left_min_idx = np.argmin(left_profile_y)
+                            consecutive_flat = 0
+                            consecutive_up = 0
+                            current_min_y = y_smooth[central_peak_idx]
+                            current_min_idx = central_peak_idx
                             
-                            # 更新谷底与计算连续上升(反弹)
-                            if current_y <= current_min_y:
-                                current_min_y = current_y
-                                current_min_idx = i
-                                consecutive_up = 0
-                            else:
-                                consecutive_up += 1
+                            for i in range(central_peak_idx - 1, -1, -1):
+                                current_y = y_smooth[i]
+                                if current_y <= current_min_y:
+                                    current_min_y = current_y
+                                    current_min_idx = i
+                                    consecutive_up = 0
+                                else:
+                                    consecutive_up += 1
+                                    
+                                if abs_slope[i] < SLOPE_THRESHOLD:
+                                    consecutive_flat += 1
+                                else:
+                                    consecutive_flat = 0
+                                    
+                                if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
+                                    left_min_idx = current_min_idx
+                                    break
+                                    
+                                if consecutive_flat >= PATIENCE:
+                                    left_min_idx = min(i + PATIENCE // 2, central_peak_idx - 1)
+                                    break
                             
-                            # 计算连续平坦(斜率)
-                            if abs_slope[i] < SLOPE_THRESHOLD:
-                                consecutive_flat += 1
-                            else:
-                                consecutive_flat = 0
-                                
-                            # 阻断判定 1: 遇谷底有效反弹 (满足趋势且超出门槛避免假阳性)
-                            if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
-                                left_min_idx = current_min_idx
-                                break
-                                
-                            # 阻断判定 2: 地形连续平坦
-                            if consecutive_flat >= PATIENCE:
-                                left_min_idx = min(i + PATIENCE // 2, central_peak_idx - 1)
-                                break
-                                
-                        # 2. 搜寻右侧基底边界 (向右递进遍历: 包含斜率阻断与谷底反弹阻断)
-                        right_min_idx = central_peak_idx + np.argmin(right_profile_y)  # 安全回退 (Fallback)
-                        consecutive_flat = 0
-                        consecutive_up = 0
-                        current_min_y = y_smooth[central_peak_idx]
-                        current_min_idx = central_peak_idx
-                        
-                        for i in range(central_peak_idx + 1, len(y_smooth)):
-                            current_y = y_smooth[i]
+                            base_x = x_salt_surf[left_min_idx]
+                            base_y = y_smooth[left_min_idx]
                             
-                            if current_y <= current_min_y:
-                                current_min_y = current_y
-                                current_min_idx = i
-                                consecutive_up = 0
-                            else:
-                                consecutive_up += 1
-                                
-                            if abs_slope[i] < SLOPE_THRESHOLD:
-                                consecutive_flat += 1
-                            else:
-                                consecutive_flat = 0
-                                
-                            # 阻断判定 1: 遇谷底有效反弹 (满足趋势且超出门槛避免假阳性)
-                            if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
-                                right_min_idx = current_min_idx
-                                break
-                                
-                            if consecutive_flat >= PATIENCE:
-                                right_min_idx = max(i - PATIENCE // 2, central_peak_idx + 1)
-                                break
-                        
-                        # ==========================================
-                        # 3. 基准弦长截断法 (强制等高对齐解决不对称颈缩发育)
-                        # ==========================================
-                        temp_left_idx = left_min_idx
-                        temp_right_idx = right_min_idx
-                        target_baseline_y = max(y_smooth[temp_left_idx], y_smooth[temp_right_idx])
-                        
-                        # 左侧重新沿壁切割
-                        for i in range(temp_left_idx, central_peak_idx):
-                            if y_smooth[i] >= target_baseline_y:
-                                left_min_idx = i
-                                break
-                                
-                        # 右侧重新沿壁切割
-                        for i in range(temp_right_idx, central_peak_idx, -1):
-                            if y_smooth[i] >= target_baseline_y:
-                                right_min_idx = i
-                                break
-                        
-                        left_base_x = x_salt_surf[left_min_idx]
-                        left_base_y = y_smooth[left_min_idx]
-                        right_base_x = x_salt_surf[right_min_idx]
-                        right_base_y = y_smooth[right_min_idx]
-                        
-                        y_baseline = (left_base_y + right_base_y) / 2.0
-                        temp_relief = central_peak_y - y_baseline
+                        elif PUSHING_WALL_SIDE.lower() == 'left':
+                            # 挤压墙在左侧，向右搜寻稳定的右侧基点
+                            right_min_idx = central_peak_idx + np.argmin(right_profile_y)
+                            consecutive_flat = 0
+                            consecutive_up = 0
+                            current_min_y = y_smooth[central_peak_idx]
+                            current_min_idx = central_peak_idx
+                            
+                            for i in range(central_peak_idx + 1, len(y_smooth)):
+                                current_y = y_smooth[i]
+                                if current_y <= current_min_y:
+                                    current_min_y = current_y
+                                    current_min_idx = i
+                                    consecutive_up = 0
+                                else:
+                                    consecutive_up += 1
+                                    
+                                if abs_slope[i] < SLOPE_THRESHOLD:
+                                    consecutive_flat += 1
+                                else:
+                                    consecutive_flat = 0
+                                    
+                                if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
+                                    right_min_idx = current_min_idx
+                                    break
+                                    
+                                if consecutive_flat >= PATIENCE:
+                                    right_min_idx = max(i - PATIENCE // 2, central_peak_idx + 1)
+                                    break
+                                    
+                            base_x = x_salt_surf[right_min_idx]
+                            base_y = y_smooth[right_min_idx]
+
+                        # 单侧锚定测算宽度与高度
+                        temp_width = abs(top_x - base_x)
+                        temp_relief = top_y - base_y
                         
                         profile_dict = {
                             'step': step,
                             'x': x_salt_surf, 'y': y_smooth,
                             'top_x': top_x, 'top_y': top_y,
-                            'l_base_x': left_base_x, 'l_base_y': left_base_y,
-                            'r_base_x': right_base_x, 'r_base_y': right_base_y,
-                            'baseline': y_baseline
+                            'base_x': base_x, 'base_y': base_y
                         }
                     else:
-                        y_baseline = np.min(y_smooth)
-                        temp_relief = central_peak_y - y_baseline
-                    
-                    widths, width_heights, left_ips, right_ips = peak_widths(y_smooth, [central_peak_idx], rel_height=0.85)
-                    idx_left = left_ips[0]
-                    idx_right = right_ips[0]
-                    x_left = np.interp(idx_left, np.arange(len(x_salt_surf)), x_salt_surf)
-                    x_right = np.interp(idx_right, np.arange(len(x_salt_surf)), x_salt_surf)
-                    
-                    temp_width = x_right - x_left
-                    if temp_width > 0:
-                        dynamic_aspect_ratio = temp_relief / temp_width
+                        base_y = np.min(y_smooth)
+                        temp_width = 0.0
+                        temp_relief = central_peak_y - base_y
+                        
+                    # 早期噪点阻断 (Thresholding)
+                    if temp_relief < MIN_RELIEF_THRESHOLD:
+                        temp_relief = 0.0
+                        temp_width = 0.0
+                        dynamic_aspect_ratio = 0.0
+                    else:
+                        if temp_width > 0:
+                            dynamic_aspect_ratio = temp_relief / temp_width
+                        else:
+                            dynamic_aspect_ratio = np.nan
                         
         except Exception as e:
             logging.warning(f"Failed to extract parameter profile for step {step}: {e}")
+            temp_width = np.nan
+            temp_relief = np.nan
         
     result_dict = {
         'Step': step,
         'Actual_Shortening': actual_shortening, 
         'Extruded_Area': extruded_area,
+        'Width': temp_width,
+        'Relief': temp_relief,
         'Aspect_Ratio': dynamic_aspect_ratio
     }
     
@@ -365,6 +350,10 @@ def main():
         df['Shortening_km'] = df['Actual_Shortening'] / 1000.0
         df['Aspect_Ratio_Smooth'] = df['Aspect_Ratio'].rolling(window=SMOOTHING_WINDOW, min_periods=1, center=True).mean()
         
+        if 'Width' in df.columns and 'Relief' in df.columns:
+            df['Width_Smooth'] = df['Width'].rolling(window=SMOOTHING_WINDOW, min_periods=1, center=True).mean()
+            df['Relief_Smooth'] = df['Relief'].rolling(window=SMOOTHING_WINDOW, min_periods=1, center=True).mean()
+            
         # 丢弃空值后立即重置索引，防止错位
         df = df.dropna(subset=['Aspect_Ratio_Smooth']).reset_index(drop=True)
         

@@ -69,11 +69,8 @@ def main():
             
             top_x = prof_data['top_x']
             top_y = prof_data['top_y']
-            l_base_x = prof_data['l_base_x']
-            l_base_y = prof_data['l_base_y']
-            r_base_x = prof_data['r_base_x']
-            r_base_y = prof_data['r_base_y']
-            baseline = prof_data['baseline']
+            base_x = prof_data['base_x']
+            base_y = prof_data['base_y']
 
             fig, ax = plt.subplots(figsize=(12, 6))
             
@@ -83,14 +80,12 @@ def main():
             
             # 标绘算法原先预估的几何特征点
             ax.plot(top_x, top_y, 'r*', markersize=18, label='主峰点 (Central Peak)')
-            ax.plot(l_base_x, l_base_y, 'bv', markersize=12, label='算法预估左基点 (Auto L-Base)')
-            ax.plot(r_base_x, r_base_y, 'bv', markersize=12, label='算法预估右基点 (Auto R-Base)')
-            ax.axhline(baseline, color='gray', linestyle='--', alpha=0.8, label='原基准面 (Auto Baseline)')
+            ax.plot(base_x, base_y, 'bv', markersize=12, label='算法预估非挤压端基点 (Auto Base)')
 
             ax.set_title(f"【组别: {group_label}】 Step {step} - 人工修正干预系统 (QA/QC)\n"
                          f"【满意】直接关闭窗口或按回车跳过。\n"
-                         f"【修正】请依次点击真实的『左侧基底』和『右侧基底』，点击完成后按下【回车键 (Enter)】确认。\n"
-                         f"如果点错了，可以继续点击覆盖，程序只取最后两次点击。", fontsize=13)
+                         f"【修正】请在真实的『非挤压端基底』点击一个基点，然后按【回车键 (Enter)】确认。\n"
+                         f"如果点错了，可以继续点击覆盖，程序只取最后一次点击。", fontsize=13)
             ax.set_xlabel('水平距离 (m)')
             ax.set_ylabel('高程 (m)')
             ax.legend(loc='best')
@@ -116,31 +111,20 @@ def main():
                 
             plt.close(fig)  # 清理当前图形，释放内存
 
-            # 如果点击数 >= 2，说明用户想修正，提取最后两次点击作为左右边界点
-            if len(clicks) >= 2:
-                click_x_left, click_y_left = clicks[-2]
-                click_x_right, click_y_right = clicks[-1]
+            # 如果点击数 >= 1，说明用户想修正，提取最后一次点击作为基底边界点
+            if len(clicks) >= 1:
+                click_x, click_y = clicks[-1]
                 
-                # 安全校验：确保左点击的 x 值小于右点击的 x 值，否则互换
-                if click_x_left > click_x_right:
-                    click_x_left, click_x_right = click_x_right, click_x_left
-
                 # 坐标吸附 (Snapping) - 寻找距离用户点击光标最接近的真实数组点位
                 # 强制转换为 int 类型以避免 Linter 关于 intp 类型不能做索引的错误预警
-                new_l_idx = int(np.argmin(np.abs(x_surf - click_x_left)))
-                new_r_idx = int(np.argmin(np.abs(x_surf - click_x_right)))
+                new_idx = int(np.argmin(np.abs(x_surf - click_x)))
 
                 # 注意：这里使用的是平滑后的 y_smooth，让你的点击吸附在平滑曲线上
-                new_l_base_x, new_l_base_y = x_surf[new_l_idx], y_smooth[new_l_idx]
-                new_r_base_x, new_r_base_y = x_surf[new_r_idx], y_smooth[new_r_idx]
+                new_base_x, new_base_y = x_surf[new_idx], y_smooth[new_idx]
 
-                # 核心机制：基准弦长截断法 (Datum Chord Truncation)
-                # 取新点中海拔较高的一端作为水平切割面，解决不对称发育的高度差问题
-                target_baseline_y = max(new_l_base_y, new_r_base_y)
-
-                # 特征值重算机制
-                new_relief = top_y - target_baseline_y
-                new_width = new_r_base_x - new_l_base_x
+                # 特征值重算机制 (Asymmetric Single-Anchor)
+                new_relief = top_y - new_base_y
+                new_width = abs(top_x - new_base_x)
                 
                 if new_width > 0:
                     new_aspect_ratio = new_relief / new_width
@@ -154,14 +138,15 @@ def main():
                     # ==========================================
                     # 更新持久化缓存字典和 DataFrame 内存
                     # ==========================================
-                    profiles_cache[step]['l_base_x'] = new_l_base_x
-                    profiles_cache[step]['l_base_y'] = new_l_base_y
-                    profiles_cache[step]['r_base_x'] = new_r_base_x
-                    profiles_cache[step]['r_base_y'] = new_r_base_y
-                    profiles_cache[step]['baseline'] = target_baseline_y
+                    profiles_cache[step]['base_x'] = new_base_x
+                    profiles_cache[step]['base_y'] = new_base_y
                     
                     if mask.any():
                         df.loc[mask, 'Aspect_Ratio'] = new_aspect_ratio
+                        if 'Width' in df.columns:
+                            df.loc[mask, 'Width'] = new_width
+                        if 'Relief' in df.columns:
+                            df.loc[mask, 'Relief'] = new_relief
             else:
                 logging.info(f"组别 {group_label} | Step {step} 用户选择跳过。保留原自动化算法特征。")
 
@@ -175,6 +160,18 @@ def main():
         # 此处必须严格保证 Aspect_Ratio 列中原本可能存在的 NaN 不会被无限扩大，使用 min_periods=1
         if 'Aspect_Ratio' in df.columns:
             df['Aspect_Ratio_Smooth'] = df['Aspect_Ratio'].rolling(
+                window=EXTRACT_SMOOTH_WINDOW, 
+                min_periods=1, 
+                center=True
+            ).mean()
+            
+        if 'Width' in df.columns and 'Relief' in df.columns:
+            df['Width_Smooth'] = df['Width'].rolling(
+                window=EXTRACT_SMOOTH_WINDOW, 
+                min_periods=1, 
+                center=True
+            ).mean()
+            df['Relief_Smooth'] = df['Relief'].rolling(
                 window=EXTRACT_SMOOTH_WINDOW, 
                 min_periods=1, 
                 center=True

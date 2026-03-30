@@ -134,10 +134,8 @@ def main():
                 
                 _ = ax_p.fill_between(p_data['x'], 0, p_data['y'], color='lightpink', alpha=0.8, label='Salt Body')
                 _ = ax_p.plot(p_data['x'], p_data['y'], color='crimson', linewidth=2)
-                _ = ax_p.axhline(p_data['baseline'], color='gray', linestyle='--', alpha=0.8)
                 _ = ax_p.scatter([p_data['top_x']], [p_data['top_y']], color='red', marker='*', s=200, zorder=5)
-                _ = ax_p.scatter([p_data['l_base_x'], p_data['r_base_x']], 
-                                 [p_data['l_base_y'], p_data['r_base_y']], color='blue', marker='v', s=100, zorder=5)
+                _ = ax_p.scatter([p_data['base_x']], [p_data['base_y']], color='blue', marker='v', s=100, zorder=5)
                 
                 shortening_arr = np.asarray(df_sampled[df_sampled['Step'] == step]['Shortening_km'])
                 shortening = shortening_arr[0] if len(shortening_arr) > 0 else 0.0
