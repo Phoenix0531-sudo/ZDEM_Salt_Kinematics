@@ -6,7 +6,7 @@ import pickle
 import logging
 import numpy as np
 import pandas as pd
-from scipy.signal import savgol_filter, find_peaks, peak_widths
+from scipy.signal import savgol_filter, find_peaks
 from scipy.stats import binned_statistic
 import concurrent.futures
 from tqdm import tqdm
@@ -133,6 +133,8 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
     
     extruded_area = 0.0
     dynamic_aspect_ratio = np.nan
+    temp_width = np.nan
+    temp_relief = np.nan
     
     if not salt_df.empty:
         salt_x_coords = np.asarray(salt_df['x'], dtype=float)
