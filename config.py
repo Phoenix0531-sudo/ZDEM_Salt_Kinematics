@@ -25,7 +25,7 @@ MANUAL_PLOT_Y_MIN = 5000.0    # 01b 交互修正时的 Y 轴下限 (m)
 MANUAL_PLOT_Y_MAX = 25000.0   # 01b 交互修正时的 Y 轴上限 (m)
 
 MAX_SHORTENING_KM = 24.0      # 最大演化挤压量 (km) (图表的 X 轴上限)
-MAX_ASPECT_RATIO = 0.30       # 演化曲线高宽比 Y 轴上限
+MAX_ASPECT_RATIO = 1.50       # 演化曲线高宽比 Y 轴上限
 
 # ==========================================
 # 3. 离散元物理参数与算法阈值
@@ -38,4 +38,4 @@ PARTICLE_AREA = np.pi * (PARTICLE_RADIUS ** 2)
 NUM_BINS = 200                # 形态提取网格数
 SMOOTHING_WINDOW = 5          # 最终曲线平滑窗口 (用于 01, 01b)
 EXTRACT_SMOOTH_WINDOW = 51    # 形态初始提取平滑窗口 (用于 01)
-NUM_KEY_STAGES = 10           # 强制采样关键帧数量
+NUM_KEY_STAGES = 60           # 强制采样关键帧数量

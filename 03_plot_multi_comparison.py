@@ -137,8 +137,8 @@ def main():
         })
 
     # 分别调用三次绘图函数，保证图例、样式和互相解耦
-    plot_evolution_metric('Width', 'Half-Width (m)', 'Multi_Evolution_HalfWidth', df_all_groups)
-    plot_evolution_metric('Relief', 'Relief (m)', 'Multi_Evolution_Relief', df_all_groups)
+    plot_evolution_metric('Width_Smooth', 'Half-Width (m)', 'Multi_Evolution_HalfWidth', df_all_groups)
+    plot_evolution_metric('Relief_Smooth', 'Relief (m)', 'Multi_Evolution_Relief', df_all_groups)
     plot_evolution_metric('Aspect_Ratio_Smooth', 'Aspect ratio', 'Multi_Evolution_AspectRatio', df_all_groups, ylim_max=MAX_ASPECT_RATIO)
 
     logging.info(f"All multi-comparison plots generated successfully in {FINAL_OUTPUT_DIR}")
