@@ -188,7 +188,7 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                         dy_dx = np.gradient(y_smooth, x_salt_surf)
                         abs_slope = np.abs(dy_dx)
                         
-                        SLOPE_THRESHOLD = 0.05
+                        # 使用配置文件的动态坡脚斜率阈值（适应挤压倾斜地层）
                         PATIENCE = 5
                         
                         base_x, base_y = x_salt_surf[0], y_smooth[0] # Fallback初始化
@@ -196,14 +196,15 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                         # 判断挤压壁朝向，选择未变形端作为稳定基点锚定
                         if PUSHING_WALL_SIDE.lower() == 'right':
                             # 挤压墙在右侧，向左搜寻稳定的左侧基点
-                            left_min_idx = np.argmin(left_profile_y)
-                            consecutive_flat = 0
-                            consecutive_up = 0
+                            left_min_idx = central_peak_idx
                             current_min_y = y_smooth[central_peak_idx]
                             current_min_idx = central_peak_idx
+                            consecutive_up = 0
                             
                             for i in range(central_peak_idx - 1, -1, -1):
                                 current_y = y_smooth[i]
+                                
+                                # 1. 坑底/边缘向斜 (Rim Syncline) 探测 (防滑坡兜底机制)
                                 if current_y <= current_min_y:
                                     current_min_y = current_y
                                     current_min_idx = i
@@ -211,17 +212,17 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                                 else:
                                     consecutive_up += 1
                                     
-                                if abs_slope[i] < SLOPE_THRESHOLD:
-                                    consecutive_flat += 1
-                                else:
-                                    consecutive_flat = 0
-                                    
                                 if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
                                     left_min_idx = current_min_idx
                                     break
                                     
-                                if consecutive_flat >= PATIENCE:
-                                    left_min_idx = min(i + PATIENCE // 2, central_peak_idx - 1)
+                                # 2. 核心修复：滑动窗口平均斜率探测 (抗击局部微褶皱噪点)
+                                # 考核当前点向左延伸 PATIENCE 个步长内的平均斜率
+                                window_start = max(0, i - PATIENCE)
+                                local_avg_slope = np.mean(abs_slope[window_start : i + 1])
+                                
+                                if local_avg_slope < FLANK_SLOPE_THRESHOLD:
+                                    left_min_idx = i
                                     break
                             
                             base_x = x_salt_surf[left_min_idx]
@@ -229,14 +230,15 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                             
                         elif PUSHING_WALL_SIDE.lower() == 'left':
                             # 挤压墙在左侧，向右搜寻稳定的右侧基点
-                            right_min_idx = central_peak_idx + np.argmin(right_profile_y)
-                            consecutive_flat = 0
-                            consecutive_up = 0
+                            right_min_idx = central_peak_idx
                             current_min_y = y_smooth[central_peak_idx]
                             current_min_idx = central_peak_idx
+                            consecutive_up = 0
                             
                             for i in range(central_peak_idx + 1, len(y_smooth)):
                                 current_y = y_smooth[i]
+                                
+                                # 1. 坑底探测
                                 if current_y <= current_min_y:
                                     current_min_y = current_y
                                     current_min_idx = i
@@ -244,17 +246,17 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                                 else:
                                     consecutive_up += 1
                                     
-                                if abs_slope[i] < SLOPE_THRESHOLD:
-                                    consecutive_flat += 1
-                                else:
-                                    consecutive_flat = 0
-                                    
                                 if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
                                     right_min_idx = current_min_idx
                                     break
                                     
-                                if consecutive_flat >= PATIENCE:
-                                    right_min_idx = max(i - PATIENCE // 2, central_peak_idx + 1)
+                                # 2. 核心修复：滑动窗口平均斜率探测
+                                # 考核当前点向右延伸 PATIENCE 个步长内的平均斜率
+                                window_end = min(len(abs_slope), i + PATIENCE + 1)
+                                local_avg_slope = np.mean(abs_slope[i : window_end])
+                                
+                                if local_avg_slope < FLANK_SLOPE_THRESHOLD:
+                                    right_min_idx = i
                                     break
                                     
                             base_x = x_salt_surf[right_min_idx]
@@ -276,10 +278,11 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                         temp_relief = central_peak_y - base_y
                         
                     # 早期噪点阻断 (Thresholding)
+                    # 使用 NaN 而非 0.0，确保绘图时曲线自动断开而非断崖式跌零
                     if temp_relief < MIN_RELIEF_THRESHOLD:
-                        temp_relief = 0.0
-                        temp_width = 0.0
-                        dynamic_aspect_ratio = 0.0
+                        temp_relief = np.nan
+                        temp_width = np.nan
+                        dynamic_aspect_ratio = np.nan
                     else:
                         if temp_width > 0:
                             dynamic_aspect_ratio = temp_relief / temp_width
@@ -347,7 +350,10 @@ def main():
             continue
             
         df = df.sort_values(by='Step').reset_index(drop=True)
-        df = df.dropna(subset=['Actual_Shortening', 'Aspect_Ratio']) 
+        # 强制线性插值填补未记录墙体位移的帧
+        df['Actual_Shortening'] = df['Actual_Shortening'].interpolate(method='linear', limit_direction='both')
+        # 只丢弃插值后仍没有 Shortening 的无效行，严禁 drop Aspect_Ratio，保留 NaN
+        df = df.dropna(subset=['Actual_Shortening']).reset_index(drop=True)
         
         df['Shortening_km'] = df['Actual_Shortening'] / 1000.0
         df['Aspect_Ratio_Smooth'] = df['Aspect_Ratio'].rolling(window=SMOOTHING_WINDOW, min_periods=1, center=True).mean()
@@ -355,29 +361,54 @@ def main():
         if 'Width' in df.columns and 'Relief' in df.columns:
             df['Width_Smooth'] = df['Width'].rolling(window=SMOOTHING_WINDOW, min_periods=1, center=True).mean()
             df['Relief_Smooth'] = df['Relief'].rolling(window=SMOOTHING_WINDOW, min_periods=1, center=True).mean()
-            
-        # 丢弃空值后立即重置索引，防止错位
-        df = df.dropna(subset=['Aspect_Ratio_Smooth']).reset_index(drop=True)
         
-        min_shortening = df['Shortening_km'].min()
-        max_shortening = df['Shortening_km'].max()
-        target_shortenings = np.linspace(min_shortening, max_shortening, NUM_KEY_STAGES)
-        
+        # ==========================================
+        # 地质演化分段采样 (Pre/Post Extrusion Split)
+        # ==========================================
         sampled_indices = []
-        for ts in target_shortenings:
-            # 将 .argmin() 改为 .idxmin()，获取真实的 Pandas 行索引
-            idx = (np.abs(df['Shortening_km'] - ts)).idxmin()
-            if idx not in sampled_indices:
-                sampled_indices.append(idx)
-                
-        # 强制采样修正逻辑：抓取准确的刺穿时刻
+        
+        # 步骤 A：定位临界点 (出露的第一帧)
         true_breakthrough = df[df['Extruded_Area'] > 0]
+        
         if not true_breakthrough.empty:
-            exact_break_idx = true_breakthrough.index[0] 
-            if exact_break_idx not in sampled_indices:
-                sampled_indices.append(exact_break_idx) 
-                sampled_indices.sort() 
-                
+            # 存在出露：临界帧 = 出露第一帧
+            break_idx = true_breakthrough.index[0]
+            critical_shortening = df.loc[break_idx, 'Shortening_km']
+            
+            # 步骤 B：出露前等距采样 PRE_EXTRUSION_FRAMES 帧
+            df_pre_all = df[df.index <= break_idx]
+            if not df_pre_all.empty:
+                min_s = df_pre_all['Shortening_km'].min()
+                target_shortenings = np.linspace(min_s, critical_shortening, PRE_EXTRUSION_FRAMES)
+                for ts in target_shortenings:
+                    idx = (np.abs(df_pre_all['Shortening_km'] - ts)).idxmin()
+                    if idx not in sampled_indices:
+                        sampled_indices.append(idx)
+            
+            # 确保临界帧自身被纳入
+            if break_idx not in sampled_indices:
+                sampled_indices.append(break_idx)
+            
+            # 步骤 C：出露后仅保留 POST_EXTRUSION_FRAMES 帧
+            df_post_all = df[df.index > break_idx]
+            if not df_post_all.empty and POST_EXTRUSION_FRAMES > 0:
+                # 取出露后最靠后的帧（模型终态）
+                post_tail = df_post_all.tail(POST_EXTRUSION_FRAMES)
+                for pidx in post_tail.index:
+                    if pidx not in sampled_indices:
+                        sampled_indices.append(pidx)
+        else:
+            # 全程未出露：在 [全局最小, 全局最大] 区间等距采 PRE_EXTRUSION_FRAMES 帧
+            min_s = df['Shortening_km'].min()
+            max_s = df['Shortening_km'].max()
+            target_shortenings = np.linspace(min_s, max_s, PRE_EXTRUSION_FRAMES)
+            for ts in target_shortenings:
+                idx = (np.abs(df['Shortening_km'] - ts)).idxmin()
+                if idx not in sampled_indices:
+                    sampled_indices.append(idx)
+        
+        sampled_indices.sort()
+        
         df_sampled = df.loc[sampled_indices].copy()
         valid_sampled_steps = set(df_sampled['Step'].tolist())
         filtered_profiles = {k: v for k, v in profiles_data_store.items() if k in valid_sampled_steps}

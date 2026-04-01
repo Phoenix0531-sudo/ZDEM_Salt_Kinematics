@@ -160,19 +160,19 @@ def main():
         # 此处必须严格保证 Aspect_Ratio 列中原本可能存在的 NaN 不会被无限扩大，使用 min_periods=1
         if 'Aspect_Ratio' in df.columns:
             df['Aspect_Ratio_Smooth'] = df['Aspect_Ratio'].rolling(
-                window=EXTRACT_SMOOTH_WINDOW, 
+                window=int(SMOOTHING_WINDOW), 
                 min_periods=1, 
                 center=True
             ).mean()
             
         if 'Width' in df.columns and 'Relief' in df.columns:
             df['Width_Smooth'] = df['Width'].rolling(
-                window=EXTRACT_SMOOTH_WINDOW, 
+                window=int(SMOOTHING_WINDOW), 
                 min_periods=1, 
                 center=True
             ).mean()
             df['Relief_Smooth'] = df['Relief'].rolling(
-                window=EXTRACT_SMOOTH_WINDOW, 
+                window=int(SMOOTHING_WINDOW), 
                 min_periods=1, 
                 center=True
             ).mean()
