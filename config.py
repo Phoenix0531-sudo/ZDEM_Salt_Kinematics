@@ -4,12 +4,12 @@ import numpy as np
 # ==========================================
 # 1. 核心目录与实验组配置
 # ==========================================
-FINAL_OUTPUT_DIR = r"E:\0.Information\4.Temp\StructLab\盐构造部分\实验\68"
+FINAL_OUTPUT_DIR = r"E:\0.Information\4.Temp\StructLab\盐构造部分\实验\69"
 
 EXPERIMENT_GROUPS = [
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '150'), 'label': r'$v_e = 150 \ m \cdot s^{-1}$', 'color': 'b', 'marker': 'o'},
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '300'), 'label': r'$v_e = 300 \ m \cdot s^{-1}$', 'color': 'r', 'marker': 's'},
-    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '600'), 'label': r'$v_e = 600 \ m \cdot s^{-1}$', 'color': 'g', 'marker': '^'}
+    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '1.0'), 'label': r'$v_e = 1.0 \ m \cdot s^{-1}$', 'color': 'b', 'marker': 'o'},
+    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '2.0'), 'label': r'$v_e = 2.0 \ m \cdot s^{-1}$', 'color': 'r', 'marker': 's'},
+    {'base_dir': os.path.join(FINAL_OUTPUT_DIR, '3.0'), 'label': r'$v_e = 3.0 \ m \cdot s^{-1}$', 'color': 'g', 'marker': '^'}
 ]
 
 CSV_FILENAME = 'kinematics_data.csv'
@@ -37,7 +37,7 @@ PARTICLE_RADIUS = 70.0        # 颗粒半径
 PARTICLE_AREA = np.pi * (PARTICLE_RADIUS ** 2)
 NUM_BINS = 200                # 形态提取网格数
 SMOOTHING_WINDOW = 3          # 最终曲线平滑窗口 (用于 01, 01b)
-EXTRACT_SMOOTH_WINDOW = 51    # 形态初始提取平滑窗口 (用于 01)
+EXTRACT_SMOOTH_WINDOW = 31    # 【核心配置】形态提取强力平滑窗口 (用于 01, 01b, 02)
 PRE_EXTRUSION_FRAMES = 25     # 出露前等距采样帧数
 POST_EXTRUSION_FRAMES = 1     # 出露后保留帧数
 FLANK_SLOPE_THRESHOLD = 0.15  # 坡脚斜率阈值，低于此值认定为平缓母盐层

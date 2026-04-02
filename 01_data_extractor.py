@@ -152,7 +152,7 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
             y_salt_surf = salt_stat[salt_valid_mask]
             
             if len(x_salt_surf) > 10:
-                window_len = min(21, len(y_salt_surf))
+                window_len = min(EXTRACT_SMOOTH_WINDOW, len(y_salt_surf))
                 if window_len % 2 == 0: window_len -= 1
                 y_smooth = np.asarray(savgol_filter(y_salt_surf, window_length=window_len, polyorder=3), dtype=float)
                 
@@ -413,8 +413,8 @@ def main():
         valid_sampled_steps = set(df_sampled['Step'].tolist())
         filtered_profiles = {k: v for k, v in profiles_data_store.items() if k in valid_sampled_steps}
         
-        csv_path = os.path.join(base_dir, 'kinematics_data.csv')
-        pkl_path = os.path.join(base_dir, 'profiles_cache.pkl')
+        csv_path = os.path.join(base_dir, CSV_FILENAME)
+        pkl_path = os.path.join(base_dir, PKL_FILENAME)
         
         df_sampled.to_csv(csv_path, index=False)
         with open(pkl_path, 'wb') as f:

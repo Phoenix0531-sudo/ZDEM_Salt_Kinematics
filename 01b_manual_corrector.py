@@ -62,8 +62,8 @@ def main():
             x_surf = np.asarray(prof_data['x'], dtype=float)
             raw_y = np.asarray(prof_data['y'], dtype=float)
             
-            # 动态增强平滑：在画图和点击前，再加一层强力平滑，彻底抹掉离散元毛刺
-            window_len = min(31, len(raw_y)) # 采用 31 的大窗口强力平滑
+            # 动态增强平滑：采用全局统一的强力平滑窗口，彻底抹掉离散元毛刺
+            window_len = min(EXTRACT_SMOOTH_WINDOW, len(raw_y))
             if window_len % 2 == 0: window_len -= 1
             y_smooth = np.asarray(savgol_filter(raw_y, window_length=window_len, polyorder=3), dtype=float)
             
@@ -135,9 +135,9 @@ def main():
                     
                     logging.info(f"==> 组别 {group_label} | Step {step} 修正成功 | 高宽比变更: {old_ar:.4f} -> {new_aspect_ratio:.4f} | 新宽度: {new_width:.1f}m")
 
-                    # ==========================================
                     # 更新持久化缓存字典和 DataFrame 内存
-                    # ==========================================
+                    # 【核心修复】同步更新 y 坐标数据，确保 02 脚本绘图时的底图与点击时的底图完全一致
+                    profiles_cache[step]['y'] = y_smooth
                     profiles_cache[step]['base_x'] = new_base_x
                     profiles_cache[step]['base_y'] = new_base_y
                     
