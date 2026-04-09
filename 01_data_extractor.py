@@ -1,4 +1,10 @@
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnusedExpression=false
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnusedExpression=false, reportUnknownParameterType=false, reportReturnType=false, reportAny=false
+"""
+ZDEM 盐构造运动学数据提取器
+
+功能: 批量解析离散元 .dat 输出文件，提取盐丘形态参数
+      (起伏度、半宽、高宽比、出露面积) 并序列化至 CSV 与 PKL。
+"""
 import os
 import glob
 import re
@@ -12,7 +18,7 @@ import concurrent.futures
 from tqdm import tqdm
 
 # ==========================================
-# 1. 全局配置与物理参数
+# 1. 全局配置与日志初始化
 # ==========================================
 logging.basicConfig(
     level=logging.INFO,
@@ -20,17 +26,25 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-# 已将所有常数项剥离至 config.py
 from config import *
 
 # ==========================================
-# 2. 核心数据解析算法
+# 2. 核心数据解析函数
 # ==========================================
 def extract_step(filename: str) -> int:
+    """从文件名中提取时间步编号。"""
     match = re.search(r'\d+', os.path.basename(filename))
     return int(match.group()) if match else 0
 
 def parse_zdem_dat(dat_path: str):
+    """
+    解析 ZDEM .dat 格式的颗粒数据文件。
+
+    返回:
+        df_group: 颗粒-组映射 DataFrame
+        df_coord: 颗粒坐标 DataFrame
+        right_wall_x: 右侧墙体 X 坐标 (若存在)
+    """
     with open(dat_path, 'r', encoding='utf-8', errors='ignore') as f:
         lines = f.readlines()
 
@@ -89,6 +103,15 @@ def parse_zdem_dat(dat_path: str):
     return df_g, df_c, right_wall_x
 
 def process_single_file(dat_path: str, initial_right_wall: float | None):
+    """
+    处理单个 .dat 文件，提取盐丘形态学参数。
+
+    算法流程:
+        1. 解析颗粒坐标与组信息
+        2. 基于分箱统计构建全局/盐层地表剖面
+        3. 基于一阶导数与动态深度约束追踪非挤压端形变前锋
+        4. 计算半宽、起伏度与高宽比
+    """
     step = extract_step(dat_path)
     df_group, df_coord, right_wall_x = parse_zdem_dat(dat_path)
     
@@ -121,6 +144,7 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
     x_min, x_max = np.min(x_all), np.max(x_all)
     bins = np.linspace(x_min, x_max, NUM_BINS + 1)
     
+    # 全局地表剖面：按分箱取纵坐标极大值
     stat, bin_edges, _ = binned_statistic(x_all, y_all, statistic='max', bins=bins)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
     
@@ -128,6 +152,7 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
     x_surface = bin_centers[valid_mask]
     y_surface = stat[valid_mask]
     
+    # 合并颗粒坐标与组信息，筛选盐层颗粒
     df_merged = pd.merge(df_coord, df_group[['id', 'group']], on='id', how='inner')
     salt_df = df_merged[df_merged['group'].astype(str).str.lower() == SALT_GROUP_NAME]
     
@@ -140,11 +165,13 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
         salt_x_coords = np.asarray(salt_df['x'], dtype=float)
         salt_y_coords = np.asarray(salt_df['y'], dtype=float)
         
+        # 基于全局地表插值判定盐层颗粒出露状态
         global_surface_y_for_salt = np.interp(salt_x_coords, x_surface, y_surface)
         extruded_mask = salt_y_coords >= (global_surface_y_for_salt - 1.5 * PARTICLE_RADIUS)
         extruded_area = np.sum(extruded_mask) * PARTICLE_AREA
         
         try:
+            # 构建盐层顶面剖面
             salt_stat, salt_bin_edges, _ = binned_statistic(salt_x_coords, salt_y_coords, statistic='max', bins=bins)
             salt_bin_centers = (salt_bin_edges[:-1] + salt_bin_edges[1:]) / 2.0
             salt_valid_mask = ~np.isnan(salt_stat)
@@ -152,10 +179,12 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
             y_salt_surf = salt_stat[salt_valid_mask]
             
             if len(x_salt_surf) > 10:
+                # Savitzky-Golay 平滑盐层顶面剖面
                 window_len = min(EXTRACT_SMOOTH_WINDOW, len(y_salt_surf))
                 if window_len % 2 == 0: window_len -= 1
                 y_smooth = np.asarray(savgol_filter(y_salt_surf, window_length=window_len, polyorder=3), dtype=float)
                 
+                # 识别盐丘主峰
                 peaks, _ = find_peaks(y_smooth, prominence=35.0)
                 peaks = np.asarray(peaks, dtype=int)
                 
@@ -179,90 +208,40 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                     
                     if len(left_profile_y) > 0 and len(right_profile_y) > 0:
                         # ==========================================
-                        # 基于一阶导数 (斜率) 阈值与单侧锚定法 (Asymmetric Single-Anchor)
+                        # 向非挤压端形变前锋追踪 (Outward Deformation Front Tracking)
+                        # 基于一阶导数与动态深度约束，从核部向非挤压端扫描真实形变前锋
                         # ==========================================
-                        regional_baseline = np.percentile(y_smooth, 10)
-                        total_relief = central_peak_y - regional_baseline
-                        BOUNCE_MIN_HEIGHT = max(100.0, 0.05 * total_relief)
-                        
                         dy_dx = np.gradient(y_smooth, x_salt_surf)
                         abs_slope = np.abs(dy_dx)
-                        
-                        # 使用配置文件的动态坡脚斜率阈值（适应挤压倾斜地层）
-                        PATIENCE = 5
-                        
-                        base_x, base_y = x_salt_surf[0], y_smooth[0] # Fallback初始化
-                        
-                        # 判断挤压壁朝向，选择未变形端作为稳定基点锚定
+
+                        base_x, base_y = x_salt_surf[0], y_smooth[0]
+
                         if PUSHING_WALL_SIDE.lower() == 'right':
-                            # 挤压墙在右侧，向左搜寻稳定的左侧基点
-                            left_min_idx = central_peak_idx
-                            current_min_y = y_smooth[central_peak_idx]
-                            current_min_idx = central_peak_idx
-                            consecutive_up = 0
+                            # 挤压端在右侧 → 向左侧（非挤压端）追踪形变前锋
+                            left_profile = y_smooth[:central_peak_idx]
                             
-                            for i in range(central_peak_idx - 1, -1, -1):
-                                current_y = y_smooth[i]
+                            # 非挤压端区域最低盆地海拔
+                            global_min_y = np.min(left_profile)
+                            
+                            # 动态深度容差：允许高出最低点 5% 的起伏，下限 50 m
+                            depth_tolerance = global_min_y + max(50.0, 0.05 * (central_peak_y - global_min_y))
+                            
+                            SCAN_WINDOW = 5
+                            left_min_idx = 0  # 缺省回退至剖面起点
+                            
+                            # 从主峰附近向左逆向扫描，双重物理约束锚定基点
+                            for i in range(central_peak_idx - SCAN_WINDOW, -1, -1):
+                                local_avg_slope = np.mean(abs_slope[i : i + SCAN_WINDOW])
                                 
-                                # 1. 坑底/边缘向斜 (Rim Syncline) 探测 (防滑坡兜底机制)
-                                if current_y <= current_min_y:
-                                    current_min_y = current_y
-                                    current_min_idx = i
-                                    consecutive_up = 0
-                                else:
-                                    consecutive_up += 1
-                                    
-                                if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
-                                    left_min_idx = current_min_idx
-                                    break
-                                    
-                                # 2. 核心修复：滑动窗口平均斜率探测 (抗击局部微褶皱噪点)
-                                # 考核当前点向左延伸 PATIENCE 个步长内的平均斜率
-                                window_start = max(0, i - PATIENCE)
-                                local_avg_slope = np.mean(abs_slope[window_start : i + 1])
-                                
-                                if local_avg_slope < FLANK_SLOPE_THRESHOLD:
+                                # 斜率低于阈值 且 海拔低于深度容差 → 锚定为形变前锋
+                                if local_avg_slope < FLANK_SLOPE_THRESHOLD and y_smooth[i] <= depth_tolerance:
                                     left_min_idx = i
                                     break
                             
                             base_x = x_salt_surf[left_min_idx]
                             base_y = y_smooth[left_min_idx]
-                            
-                        elif PUSHING_WALL_SIDE.lower() == 'left':
-                            # 挤压墙在左侧，向右搜寻稳定的右侧基点
-                            right_min_idx = central_peak_idx
-                            current_min_y = y_smooth[central_peak_idx]
-                            current_min_idx = central_peak_idx
-                            consecutive_up = 0
-                            
-                            for i in range(central_peak_idx + 1, len(y_smooth)):
-                                current_y = y_smooth[i]
-                                
-                                # 1. 坑底探测
-                                if current_y <= current_min_y:
-                                    current_min_y = current_y
-                                    current_min_idx = i
-                                    consecutive_up = 0
-                                else:
-                                    consecutive_up += 1
-                                    
-                                if consecutive_up >= PATIENCE and (current_y - current_min_y) > BOUNCE_MIN_HEIGHT:
-                                    right_min_idx = current_min_idx
-                                    break
-                                    
-                                # 2. 核心修复：滑动窗口平均斜率探测
-                                # 考核当前点向右延伸 PATIENCE 个步长内的平均斜率
-                                window_end = min(len(abs_slope), i + PATIENCE + 1)
-                                local_avg_slope = np.mean(abs_slope[i : window_end])
-                                
-                                if local_avg_slope < FLANK_SLOPE_THRESHOLD:
-                                    right_min_idx = i
-                                    break
-                                    
-                            base_x = x_salt_surf[right_min_idx]
-                            base_y = y_smooth[right_min_idx]
 
-                        # 单侧锚定测算宽度与高度
+                        # 基于单侧锚定点计算半宽与起伏度
                         temp_width = abs(top_x - base_x)
                         temp_relief = top_y - base_y
                         
@@ -277,8 +256,7 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                         temp_width = 0.0
                         temp_relief = central_peak_y - base_y
                         
-                    # 早期噪点阻断 (Thresholding)
-                    # 使用 NaN 而非 0.0，确保绘图时曲线自动断开而非断崖式跌零
+                    # 起伏度低于阈值的帧标记为 NaN，绘图时自动断开曲线
                     if temp_relief < MIN_RELIEF_THRESHOLD:
                         temp_relief = np.nan
                         temp_width = np.nan
@@ -290,7 +268,7 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
                             dynamic_aspect_ratio = np.nan
                         
         except Exception as e:
-            logging.warning(f"Failed to extract parameter profile for step {step}: {e}")
+            logging.warning(f"形态参数提取失败 (step={step}): {e}")
             temp_width = np.nan
             temp_relief = np.nan
         
@@ -306,7 +284,7 @@ def process_single_file(dat_path: str, initial_right_wall: float | None):
     return step, result_dict, profile_dict
 
 # ==========================================
-# 3. 主提取循环 (外层串行组，内层并行文件)
+# 3. 主提取流程（外层串行实验组，内层并行文件）
 # ==========================================
 def main():
     if not os.path.exists(FINAL_OUTPUT_DIR):
@@ -316,19 +294,19 @@ def main():
         base_dir = group['base_dir']
         
         if not os.path.exists(base_dir):
-            logging.error(f"Directory missing: The base path '{base_dir}' does not exist. Skipping group.")
+            logging.error(f"目录缺失: '{base_dir}'，跳过该组。")
             continue
             
         data_dir = os.path.join(base_dir, 'data')
         if not os.path.exists(data_dir):
-            logging.error(f"Directory missing: the data subdirectory '{data_dir}' does not exist. Skipping group.")
+            logging.error(f"数据子目录缺失: '{data_dir}'，跳过该组。")
             continue
             
         dat_pattern = os.path.join(data_dir, '*.dat')
         dat_files = glob.glob(dat_pattern)
         
         if not dat_files:
-            logging.warning(f"No .dat files found in {data_dir}. Skipping...")
+            logging.warning(f"未发现 .dat 文件: {data_dir}，跳过。")
             continue
             
         dat_files.sort(key=extract_step)
@@ -339,7 +317,17 @@ def main():
         
         with concurrent.futures.ProcessPoolExecutor() as executor:
             futures = executor.map(process_single_file, dat_files, [initial_right_wall] * len(dat_files))
-            for step, res_dict, prof_dict in tqdm(futures, total=len(dat_files), desc=f"Extraction [{os.path.basename(group['base_dir'])}]", unit="file", colour="green"):
+            # tqdm 进度条美化：ncols 固定宽度，ascii=True，bar_format 统一
+            for step, res_dict, prof_dict in tqdm(
+                futures,
+                total=len(dat_files),
+                desc=f"Extraction [{os.path.basename(group['base_dir'])}]",
+                unit="file",
+                colour="green",
+                ncols=80,
+                ascii=True,
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+            ):
                 if res_dict:
                     results.append(res_dict)
                 if prof_dict:
@@ -350,9 +338,9 @@ def main():
             continue
             
         df = df.sort_values(by='Step').reset_index(drop=True)
-        # 强制线性插值填补未记录墙体位移的帧
+        # 线性插值填补缺失的墙体位移帧
         df['Actual_Shortening'] = df['Actual_Shortening'].interpolate(method='linear', limit_direction='both')
-        # 只丢弃插值后仍没有 Shortening 的无效行，严禁 drop Aspect_Ratio，保留 NaN
+        # 仅丢弃插值后仍缺失挤压量的无效行，保留 Aspect_Ratio 的 NaN
         df = df.dropna(subset=['Actual_Shortening']).reset_index(drop=True)
         
         df['Shortening_km'] = df['Actual_Shortening'] / 1000.0
@@ -363,19 +351,18 @@ def main():
             df['Relief_Smooth'] = df['Relief'].rolling(window=SMOOTHING_WINDOW, min_periods=1, center=True).mean()
         
         # ==========================================
-        # 地质演化分段采样 (Pre/Post Extrusion Split)
+        # 地质演化分段采样 (出露前/后阶段拆分)
         # ==========================================
         sampled_indices = []
         
-        # 步骤 A：定位临界点 (出露的第一帧)
+        # 定位出露临界帧
         true_breakthrough = df[df['Extruded_Area'] > 0]
         
         if not true_breakthrough.empty:
-            # 存在出露：临界帧 = 出露第一帧
             break_idx = true_breakthrough.index[0]
             critical_shortening = df.loc[break_idx, 'Shortening_km']
             
-            # 步骤 B：出露前等距采样 PRE_EXTRUSION_FRAMES 帧
+            # 出露前等距采样
             df_pre_all = df[df.index <= break_idx]
             if not df_pre_all.empty:
                 min_s = df_pre_all['Shortening_km'].min()
@@ -385,20 +372,19 @@ def main():
                     if idx not in sampled_indices:
                         sampled_indices.append(idx)
             
-            # 确保临界帧自身被纳入
+            # 确保临界帧被纳入
             if break_idx not in sampled_indices:
                 sampled_indices.append(break_idx)
             
-            # 步骤 C：出露后仅保留 POST_EXTRUSION_FRAMES 帧
+            # 出露后保留终态帧
             df_post_all = df[df.index > break_idx]
             if not df_post_all.empty and POST_EXTRUSION_FRAMES > 0:
-                # 取出露后最靠后的帧（模型终态）
                 post_tail = df_post_all.tail(POST_EXTRUSION_FRAMES)
                 for pidx in post_tail.index:
                     if pidx not in sampled_indices:
                         sampled_indices.append(pidx)
         else:
-            # 全程未出露：在 [全局最小, 全局最大] 区间等距采 PRE_EXTRUSION_FRAMES 帧
+            # 全程未出露：全区间等距采样
             min_s = df['Shortening_km'].min()
             max_s = df['Shortening_km'].max()
             target_shortenings = np.linspace(min_s, max_s, PRE_EXTRUSION_FRAMES)

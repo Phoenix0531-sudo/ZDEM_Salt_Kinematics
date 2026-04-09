@@ -1,3 +1,6 @@
 .vscode/
 __pycache__/
-__pycache__/01b_manual_corrector.cpython-313.pyc
+*.pyc
+
+# 本地环境配置 (含敏感路径，禁止入库)
+.env

@@ -1,10 +1,11 @@
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnusedExpression=false
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnusedExpression=false, reportUnknownParameterType=false, reportAny=false, reportExplicitAny=false
 import os
 import logging
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from typing import Any
 
 # ==========================================
 # 1. 全局配置与渲染器状态
@@ -20,12 +21,12 @@ from config import *
 # ==========================================
 # 2. 综合多层级绘图核心
 # ==========================================
-def plot_evolution_metric(metric_col, y_label, file_prefix, df_all_groups, ylim_max=None):
+def plot_evolution_metric(metric_col: str, y_label: str, file_prefix: str, df_all_groups: list[dict[str, Any]], ylim_max: float | None = None) -> None:
     _, ax = plt.subplots(figsize=(8, 6))
     ax.set_facecolor('white')  
     ax.grid(False)
     
-    # 学术级坐标流氓边框剔除
+    # 精简坐标轴边框
     ax.spines['top'].set_visible(False)
     ax.spines['left'].set_visible(False)
     ax.spines['right'].set_visible(True)
@@ -66,7 +67,7 @@ def plot_evolution_metric(metric_col, y_label, file_prefix, df_all_groups, ylim_
         handles.append(proxy_line)
         labels.append(proxy_line.get_label())
     
-    # 强制将图例锚点归位且拒绝边框
+    # 无边框图例定位
     _ = ax.legend(handles, labels, loc='upper left', frameon=False)
     
     plt.tight_layout()
@@ -92,36 +93,37 @@ def main():
     
     df_all_groups = []
     
+    num_groups = len(EXPERIMENT_GROUPS)
     for index, group in enumerate(EXPERIMENT_GROUPS):
         base_dir = group['base_dir']
         
+        # 记录当前组处理状态
+        logging.info(f"[{index + 1}/{num_groups}] Processing data group: {group['label']}")
+        
         if not os.path.exists(base_dir):
-            logging.error(f"Directory missing: '{base_dir}' does not exist. Skipping group {index}.")
+            logging.error(f"  FAILED: Path missing - '{base_dir}'")
             continue
             
         csv_path = os.path.join(base_dir, 'kinematics_data.csv')
-        
         if not os.path.exists(csv_path):
-            logging.warning(f"Kinematics data not found in {base_dir}. Skipping...")
+            logging.warning(f"  SKIP: Kinematics CSV not found in {base_dir}")
             continue
             
         try:
             df_sampled = pd.read_csv(csv_path)
+            if df_sampled.empty:
+                logging.warning(f"  SKIP: CSV is empty in {base_dir}")
+                continue
         except Exception as e:
-            logging.error(f"Error reading CSV in {base_dir}: {e}")
+            logging.error(f"  FAILED: Error reading CSV in {base_dir}: {e}")
             continue
             
-        if df_sampled.empty:
-            logging.warning(f"Kinematics data is empty in {base_dir}. Skipping...")
-            continue
-            
-        logging.info(f"Successfully loaded data for group {index}: {group['label']}")
+        logging.info(f"  SUCCESS: Loaded {len(df_sampled)} frames for {group['label']}")
         
         breakthrough_df = df_sampled[df_sampled['Extruded_Area'] > 0]
         
         if not breakthrough_df.empty:
             cutoff_step = np.asarray(breakthrough_df['Step'])[0]
-            # 共用关键节点防止多段线断裂
             df_pre = df_sampled[df_sampled['Step'] <= cutoff_step]
             df_post = df_sampled[df_sampled['Step'] >= cutoff_step] 
         else:
@@ -136,7 +138,9 @@ def main():
             'df_post': df_post
         })
 
-    # 分别调用三次绘图函数，保证图例、样式和互相解耦
+    logging.info(f"Total groups successfully prepared for plotting: {len(df_all_groups)}")
+
+    # 逐指标渲染演化曲线对比图
     plot_evolution_metric('Width_Smooth', 'Half-Width (m)', 'Multi_Evolution_HalfWidth', df_all_groups)
     plot_evolution_metric('Relief_Smooth', 'Relief (m)', 'Multi_Evolution_Relief', df_all_groups)
     plot_evolution_metric('Aspect_Ratio_Smooth', 'Aspect ratio', 'Multi_Evolution_AspectRatio', df_all_groups, ylim_max=MAX_ASPECT_RATIO)
