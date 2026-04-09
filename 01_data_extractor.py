@@ -316,18 +316,21 @@ def main():
         profiles_data_store = {} 
         
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            futures = executor.map(process_single_file, dat_files, [initial_right_wall] * len(dat_files))
-            # tqdm 进度条美化：ncols 固定宽度，ascii=True，bar_format 统一
-            for step, res_dict, prof_dict in tqdm(
-                futures,
+            # 1. 采用 submit 模式提交所有任务
+            futures = [executor.submit(process_single_file, f, initial_right_wall) for f in dat_files]
+            
+            # 2. 采用 as_completed 模式，确保进度条绝对实时更新
+            for future in tqdm(
+                concurrent.futures.as_completed(futures),
                 total=len(dat_files),
                 desc=f"Extraction [{os.path.basename(group['base_dir'])}]",
                 unit="file",
                 colour="green",
-                ncols=80,
-                ascii=True,
-                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+                ncols=100,  # 强制锁定进度条总宽度为100字符，保证绝对对齐
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}]" # 强制剥夺自动切换，永远只显示 s/file
             ):
+                # 提取执行结果
+                step, res_dict, prof_dict = future.result()
                 if res_dict:
                     results.append(res_dict)
                 if prof_dict:
@@ -344,6 +347,15 @@ def main():
         df = df.dropna(subset=['Actual_Shortening']).reset_index(drop=True)
         
         df['Shortening_km'] = df['Actual_Shortening'] / 1000.0
+        
+        # ==========================================
+        # 核心修复：停滞帧过滤 (消除折线图末端的垂直电线杆)
+        # ==========================================
+        # 计算相邻帧的位移差。如果位移增量小于 0.005 km (即5米)，说明挤压墙已停滞但离散元还在跑。
+        # 直接剔除这些无效的后续帧，避免图形垂直堆叠。
+        shortening_diff = df['Shortening_km'].diff().fillna(1.0)
+        df = df[shortening_diff > 0.005].reset_index(drop=True)
+        
         df['Aspect_Ratio_Smooth'] = df['Aspect_Ratio'].rolling(window=SMOOTHING_WINDOW, min_periods=1, center=True).mean()
         
         if 'Width' in df.columns and 'Relief' in df.columns:
