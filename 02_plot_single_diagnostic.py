@@ -1,133 +1,162 @@
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnusedExpression=false
 """
-ZDEM Salt Kinematics 诊断图渲染器
+ZDEM Salt Kinematics 诊断图渲染器 (已还原至原始学术版本)
 
 职责: 生成单组实验的运动学演化曲线与盐体剖面形态诊断矩阵。
-工程化改进: 接入 utils 学术样式、模块化渲染逻辑、提升出图质量。
+工程化改进: 保持模块化结构，还原原始学术绘图风格 (Y 轴右置, 实/虚线逻辑, 特定配色)。
 """
-# pyright: reportAny=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false
-
 import os
 import pickle
 import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from typing import Any
 
 from config import *
-from utils import (
-    setup_academic_style, 
-    apply_savgol_filter, 
-    GroupDataManager,
-    setup_project_logging
-)
+from utils import setup_project_logging, GroupDataManager
 
+# 初始化项目级日志
 setup_project_logging()
-setup_academic_style()
 
 def render_diagnostic_plots(mgr: GroupDataManager):
     """
     渲染并导出指定实验组的形态学诊断图谱。
     
-    包含：
-    1. 颗粒运动学演化轨迹图（宽高比 vs 缩短量）。
-    2. 盐体剖面形态演化矩阵（多宫格 Grid）。
+    还原点:
+    - Y 轴右置, 隐藏左/上边框
+    - 出露前实线带圆点, 出露后虚线
+    - 剖面图使用 lightpink 填充与 crimson 边界
     """
     if not os.path.exists(mgr.csv_path) or not os.path.exists(mgr.pkl_path):
-        logging.warning(f"缺少必要依赖文件，跳过组别 [{mgr.folder_name}]。")
+        logging.warning(f"跳过实验组 [{mgr.folder_name}]: 缺少必要的数据文件 (CSV/PKL)。")
         return
 
     try:
-        df = pd.read_csv(mgr.csv_path)
+        df_sampled = pd.read_csv(mgr.csv_path)
         with open(mgr.pkl_path, 'rb') as f:
-            profiles = pickle.load(f)
+            profiles_data_store = pickle.load(f)
     except Exception as e:
-        logging.error(f"读取数据失败 [{mgr.folder_name}]: {e}")
+        logging.error(f"加载数据失败 [{mgr.folder_name}]: {e}")
         return
 
-    # 1. 颗粒运动学演化轨迹图
-    _, ax = plt.subplots(figsize=(8, 6))
-    
-    # 区分盐体颗粒出露地表前后的演化阶段
-    mask_break = df['Extruded_Area'] > 0
-    df_pre = df[~mask_break]
-    df_post = df[mask_break]
-    
-    color = '#0056b3'
-    if not df_pre.empty:
-        ax.plot(df_pre['Shortening_km'], df_pre['Aspect_Ratio_Smooth'], 
-                color=color, marker='o', ms=6, label=f"{mgr.label} (出露前)")
-    if not df_post.empty:
-        # 衔接出露前后的曲线
-        last_pre = df_pre.tail(1) if not df_pre.empty else pd.DataFrame()
-        df_post_plot = pd.concat([last_pre, df_post])
-        ax.plot(df_post_plot['Shortening_km'], df_post_plot['Aspect_Ratio_Smooth'], 
-                color=color, linestyle='--', marker='s', ms=5, label=f"{mgr.label} (出露后)")
+    logging.info(f"正在为实验组 [{mgr.folder_name}] 渲染诊断图...")
 
-    ax.set_xlabel("构造缩短量 (km)")
-    ax.set_ylabel("盐体宽高比 (Aspect Ratio)")
+    # 配置学术绘图全局参数 (还原至原始 14pt)
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'DejaVu Sans']
+    plt.rcParams['font.size'] = 14
+    plt.rcParams['axes.linewidth'] = 1.5 
+    
+    # -----------------------------------------------------
+    # 图 1：颗粒运动学演化轨迹图 (还原原始视觉逻辑)
+    # -----------------------------------------------------
+    _, ax = plt.subplots(figsize=(8, 6))
+    ax.set_facecolor('white')  
+    ax.grid(False)
+    
+    # 精简边框 (隐藏左上)
+    ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(True)
+    ax.spines['bottom'].set_visible(True)
+    
+    # Y 轴右置
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position("right")
+    ax.tick_params(axis='x', direction='in', top=False, bottom=True, length=6, width=1.5)
+    ax.tick_params(axis='y', direction='in', left=False, right=True, length=6, width=1.5)
+    
     ax.set_xlim(0, MAX_SHORTENING_KM)
     ax.set_ylim(0, MAX_ASPECT_RATIO)
-    ax.legend(loc='upper left', frameon=True)
-    ax.grid(True, linestyle=':', alpha=0.5)
+    ax.set_xlabel('Shortening (km)', weight='bold') 
+    ax.set_ylabel('Aspect ratio', weight='bold') 
     
-    out_path = os.path.join(mgr.base_dir, 'Kinematic_Evolution_Diagnostic.png')
-    plt.savefig(out_path, dpi=300, bbox_inches='tight')
-    plt.close()
-
-    # 2. 颗粒形态诊断矩阵 (Grid)
-    steps = sorted(profiles.keys())
-    if not steps: 
-        return
-
-    # 选取关键步进行展示（最多 15 个）
-    display_steps = steps if len(steps) <= 15 else [steps[i] for i in np.linspace(0, len(steps)-1, 15, dtype=int)]
-    n = len(display_steps)
-    cols = 3
-    rows = (n + cols - 1) // cols
-    _, axes_array = plt.subplots(rows, cols, figsize=(15, 3.5 * rows), squeeze=False)
-    axes = axes_array.flatten()
-
-    for i, step in enumerate(display_steps):
-        ax = axes[i]
-        p = profiles[step]
-        x, y = p['x'], p['y']
+    # 阶段判定逻辑
+    breakthrough_steps = np.asarray(df_sampled[df_sampled['Extruded_Area'] > 0]['Step'])
+    if len(breakthrough_steps) > 0:
+        cutoff_step = breakthrough_steps[0]
+        df_pre = df_sampled[df_sampled['Step'] <= cutoff_step]
+        df_post = df_sampled[df_sampled['Step'] >= cutoff_step] 
+    else:
+        df_pre = df_sampled
+        df_post = pd.DataFrame(columns=df_sampled.columns)
         
-        if len(x) == 0:
-            ax.text(0.5, 0.5, "无数据", transform=ax.transAxes, ha='center', va='center')
-            ax.set_title(f"Step {step}", fontsize=10)
-            ax.axis('off')
-            continue
-
-        # 平滑处理颗粒包络线
-        y_sm = apply_savgol_filter(y, EXTRACT_SMOOTH_WINDOW)
-        ax.fill_between(x, np.min(y_sm), y_sm, color='#B2182B', alpha=0.15)
-        ax.plot(x, y_sm, color='#B2182B', lw=1.5, label='盐体包络线')
+    academic_blue = '#0056b3'
         
-        # 标注颗粒运动学关键特征点
-        if not np.isnan(p['top_x']):
-            ax.scatter(p['top_x'], p['top_y'], marker='*', s=100, color='#B2182B', zorder=5, label='盐体主峰')
-        if not np.isnan(p['base_x']):
-            ax.scatter(p['base_x'], p['base_y'], marker='o', s=40, color='#4C72B0', zorder=5, label='识别基点')
-
-        shortening_vals = np.asarray(df[df['Step'] == step]['Shortening_km'])
-        shortening = float(shortening_vals[0]) if shortening_vals.size > 0 else 0.0
-        ax.set_title(f"Step {step} | 缩短量: {shortening:.2f} km", fontsize=10)
-        ax.set_xlim(0, MODEL_WIDTH)
-        ax.set_ylim(MANUAL_PLOT_Y_MIN, MANUAL_PLOT_Y_MAX)
-        ax.axis('off')
-
-    # 隐藏多余的子图
-    for j in range(n, len(axes)): 
-        axes[j].axis('off')
+    if not df_pre.empty:
+        ax.plot(df_pre['Shortening_km'], df_pre['Aspect_Ratio_Smooth'], 
+                color=academic_blue, marker='o', markersize=9, 
+                markerfacecolor=academic_blue, markeredgecolor=academic_blue,
+                linestyle='-', linewidth=2, label=mgr.label)
+                
+    if not df_post.empty and not df_pre.empty:
+        ax.plot(df_post['Shortening_km'], df_post['Aspect_Ratio_Smooth'], 
+                color=academic_blue, linestyle='--', linewidth=2)
+        
+    handles, labels_list = ax.get_legend_handles_labels()
+    if not df_post.empty:
+        proxy_line = Line2D([0], [0], color='gray', linestyle='--', linewidth=2, label='Salt extrusion (dashed line)')
+        handles.append(proxy_line)
+        labels_list.append(proxy_line.get_label())
     
+    if handles:
+        ax.legend(handles, labels_list, loc='upper left', frameon=False)
+    
+    ax.margins(x=0.15)
     plt.tight_layout()
-    plt.savefig(os.path.join(mgr.base_dir, 'Salt_Profiles_Diagnostic_Grid.png'), dpi=200, bbox_inches='tight')
-    plt.close()
-    logging.info(f"组别 [{mgr.folder_name}] 颗粒运动学诊断图谱渲染完成。")
+    plt.savefig(os.path.join(mgr.base_dir, 'Kinematic_Evolution_Diagnostic.png'), dpi=600, bbox_inches='tight')
+    plt.close() 
+
+    # -----------------------------------------------------
+    # 图 2：盐体剖面形态演化多宫格诊断图 (还原原始配色与标注)
+    # -----------------------------------------------------
+    valid_sampled_steps = df_sampled['Step'].tolist()
+    plot_steps = [s for s in valid_sampled_steps if s in profiles_data_store]
+    
+    if plot_steps:
+        num_plots = len(plot_steps)
+        cols = 2
+        rows = int(np.ceil(num_plots / cols))
+        
+        _, axes_prof = plt.subplots(rows, cols, figsize=(14, 4 * rows))
+        if num_plots > 1:
+            axes_prof = axes_prof.flatten()
+        else:
+            axes_prof = [axes_prof]
+            
+        for idx, step in enumerate(plot_steps):
+            ax_p = axes_prof[idx]
+            p_data = profiles_data_store[step]
+            
+            # 还原配色: lightpink 填充, crimson 边界线
+            ax_p.fill_between(p_data['x'], 0, p_data['y'], color='lightpink', alpha=0.8, label='Salt Body')
+            ax_p.plot(p_data['x'], p_data['y'], color='crimson', linewidth=2)
+            
+            # 还原关键点标注: 红色五角星 (主峰), 蓝色倒三角 (基点)
+            ax_p.scatter([p_data['top_x']], [p_data['top_y']], color='red', marker='*', s=200, zorder=5)
+            ax_p.scatter([p_data['base_x']], [p_data['base_y']], color='blue', marker='v', s=100, zorder=5)
+            
+            shortening_arr = np.asarray(df_sampled[df_sampled['Step'] == step]['Shortening_km'])
+            shortening = shortening_arr[0] if len(shortening_arr) > 0 else 0.0
+            ax_p.set_title(f'Step: {step} | Shortening: {shortening:.1f} km', fontweight='bold', fontsize=12)
+            
+            ax_p.set_xlim(0, MODEL_WIDTH)
+            ax_p.set_ylim(0, MODEL_HEIGHT)
+            ax_p.tick_params(labelsize=10)
+            
+        for i in range(num_plots, len(axes_prof)):
+            axes_prof[i].axis('off')
+            
+        plt.tight_layout()
+        plt.savefig(os.path.join(mgr.base_dir, 'Salt_Profiles_Diagnostic_Grid.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+
+    logging.info(f"实验组 [{mgr.folder_name}] 诊断图谱渲染完成。")
 
 def main():
-    """主程序。"""
+    """主程序入口。"""
     for group in EXPERIMENT_GROUPS:
         mgr = GroupDataManager(group)
         render_diagnostic_plots(mgr)

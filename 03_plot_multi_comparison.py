@@ -1,132 +1,158 @@
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnusedExpression=false, reportUnknownParameterType=false, reportAny=false, reportExplicitAny=false
 """
-ZDEM Salt Kinematics 跨组联合对比工具
+ZDEM Salt Kinematics 跨组联合对比工具 (已还原至原始学术版本)
 
 职责: 整合多个物理实验组的颗粒运动学指标，生成学术出版级的对比图谱。
-工程化改进: 接入统一日志、术语规范化、支持矢量 PDF 导出、优化图例布局。
+还原说明: 
+- Y 轴右置 (tick_right)
+- 阶段化线型 (出露前带 Marker 实线, 出露后无 Marker 虚线)
+- 代理图例逻辑
+- 字体大小 14pt, 600 DPI 导出
 """
-# pyright: reportAny=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false
-
 import os
 import logging
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from typing import Any
 
 from config import *
-from utils import setup_academic_style, setup_project_logging, GroupDataManager
+from utils import setup_project_logging
 
-# 初始化工程化组件
+# 初始化项目级日志
 setup_project_logging()
-setup_academic_style()
 
-def plot_comparison(metric: str, ylabel: str, filename: str, groups_data: list[dict[str, Any]]):
+# ==========================================
+# 1. 跨组绘图引擎 (还原至原始逻辑)
+# ==========================================
+def plot_evolution_metric(metric_col: str, y_label: str, file_prefix: str, df_all_groups: list[dict[str, Any]], ylim_max: float | None = None) -> None:
     """
     渲染多组颗粒运动学指标对比图。
-    
-    Parameters
-    ----------
-    metric : str
-        DataFrame 中的指标列名。
-    ylabel : str
-        纵坐标显示的学术标签 (支持 LaTeX)。
-    filename : str
-        导出的文件名（不含扩展名）。
-    groups_data : list[dict]
-        包含各实验组 df, label, color, marker 的列表。
     """
     _, ax = plt.subplots(figsize=(8, 6))
+    ax.set_facecolor('white')  
+    ax.grid(False)
     
-    for g in groups_data:
-        df = g['df']
-        if metric not in df.columns:
-            continue
-            
-        # 识别颗粒出露前后的演化阶段（通过 Extruded_Area 判定）
-        mask_break = df['Extruded_Area'] > 0
-        df_pre = df[~mask_break]
-        df_post = df[mask_break]
-        
-        # 阶段一：出露前 (实线渲染)
-        ax.plot(df_pre['Shortening_km'], df_pre[metric], 
-                color=g['color'], marker=g['marker'], ms=6, lw=1.5, 
-                label=f"{g['label']} (出露前)")
-        
-        # 阶段二：出露后 (虚线渲染，区分演化阶段)
-        if not df_post.empty:
-            # 衔接点平滑处理
-            last_pre = df_pre.tail(1) if not df_pre.empty else pd.DataFrame()
-            df_post_plot = pd.concat([last_pre, df_post])
-            ax.plot(df_post_plot['Shortening_km'], df_post_plot[metric], 
-                    color=g['color'], linestyle='--', marker=g['marker'], ms=5, lw=1.2,
-                    label=f"{g['label']} (出露后)")
-
-    ax.set_xlabel("构造缩短量 (Shortening, km)")
-    ax.set_ylabel(ylabel)
-    ax.set_xlim(0, MAX_SHORTENING_KM)
-    
-    # 针对特定指标设置纵轴显示策略
-    if 'Aspect_Ratio' in metric: 
-        ax.set_ylim(0, MAX_ASPECT_RATIO)
-    elif 'Relief' in metric:
-        ax.set_ylim(0, None) 
-        
-    # 优化图例：去重并美化布局
-    handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys(), frameon=True, fontsize=10, loc='best')
-    
-    # 移除冗余边框
+    # 还原边框样式 (隐藏左上)
     ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.grid(True, linestyle=':', alpha=0.4)
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(True)
+    ax.spines['bottom'].set_visible(True)
+    
+    # 还原 Y 轴右置
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position("right")
+    ax.tick_params(axis='x', direction='in', top=False, bottom=True, length=6, width=1.5)
+    ax.tick_params(axis='y', direction='in', left=False, right=True, length=6, width=1.5)
+    
+    ax.set_xlim(0, MAX_SHORTENING_KM)
+    if ylim_max is not None:
+        ax.set_ylim(0, ylim_max)
+    ax.margins(x=0.15)
+        
+    ax.set_ylabel(y_label, weight='bold')
+    ax.set_xlabel('Shortening (km)', weight='bold')
+
+    has_dashed_post = False
+    
+    for group_data in df_all_groups:
+        color = group_data['color']
+        marker = group_data['marker']
+        label = group_data['label']
+        df_pre = group_data['df_pre']
+        df_post = group_data['df_post']
+        
+        # 阶段一：出露前 (实线带 Marker)
+        if not df_pre.empty and metric_col in df_pre.columns:
+            ax.plot(df_pre['Shortening_km'], df_pre[metric_col], 
+                    color=color, marker=marker, markersize=8, 
+                    markerfacecolor=color, markeredgecolor=color, 
+                    linestyle='-', linewidth=2, label=label)
+            
+        # 阶段二：出露后 (虚线无 Marker)
+        if not df_post.empty and metric_col in df_post.columns:
+            has_dashed_post = True
+            ax.plot(df_post['Shortening_km'], df_post[metric_col], 
+                    color=color, marker='', linestyle='--', linewidth=2)
+
+    handles, labels = ax.get_legend_handles_labels()
+    
+    # 注入代理图例
+    if has_dashed_post:
+        proxy_line = Line2D([0], [0], color='gray', linestyle='--', linewidth=2, label='Salt extrusion (dashed lines)')
+        handles.append(proxy_line)
+        labels.append(proxy_line.get_label())
+    
+    ax.legend(handles, labels, loc='upper left', frameon=False)
     
     plt.tight_layout()
     
-    # 同时输出位图与矢量图，满足不同出版需求
-    png_path = os.path.join(FINAL_OUTPUT_DIR, f"{filename}.png")
-    pdf_path = os.path.join(FINAL_OUTPUT_DIR, f"{filename}.pdf")
+    plot_png = os.path.join(FINAL_OUTPUT_DIR, f'{file_prefix}.png')
+    plot_pdf = os.path.join(FINAL_OUTPUT_DIR, f'{file_prefix}.pdf')
     
-    plt.savefig(png_path, dpi=300, bbox_inches='tight')
-    plt.savefig(pdf_path, dpi=300, bbox_inches='tight')
+    plt.savefig(plot_png, dpi=600, bbox_inches='tight')
+    plt.savefig(plot_pdf, dpi=600, bbox_inches='tight')
     plt.close()
+    
+    logging.info(f"Generated comparison plot: {file_prefix}")
+
 
 def main():
-    """主程序入口：加载数据并生成盐底辟演化图。"""
+    """主程序。"""
     if not os.path.exists(FINAL_OUTPUT_DIR): 
         os.makedirs(FINAL_OUTPUT_DIR)
-    
-    processed_groups: list[dict[str, Any]] = []
-    for group in EXPERIMENT_GROUPS:
-        mgr = GroupDataManager(group)
-        if not os.path.exists(mgr.csv_path): 
-            logging.warning(f"跳过实验组 [{mgr.folder_name}]: 缺少提取的 CSV 指标文件。")
-            continue
         
+    # 严格遵循原始样式配置
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'DejaVu Sans']
+    plt.rcParams['font.size'] = 14
+    plt.rcParams['axes.linewidth'] = 1.5 
+    
+    df_all_groups = []
+    
+    for group in EXPERIMENT_GROUPS:
+        base_dir = group['base_dir']
+        logging.info(f"Loading data: {group['label']}")
+        
+        if not os.path.exists(base_dir):
+            continue
+            
+        csv_path = os.path.join(base_dir, CSV_FILENAME)
+        if not os.path.exists(csv_path):
+            continue
+            
         try:
-            df = pd.read_csv(mgr.csv_path)
-            processed_groups.append({
-                'label': mgr.label,
+            df_sampled = pd.read_csv(csv_path)
+            if df_sampled.empty:
+                continue
+            
+            # 还原阶段拆分逻辑
+            breakthrough_df = df_sampled[df_sampled['Extruded_Area'] > 0]
+            if not breakthrough_df.empty:
+                cutoff_step = np.asarray(breakthrough_df['Step'])[0]
+                df_pre = df_sampled[df_sampled['Step'] <= cutoff_step]
+                df_post = df_sampled[df_sampled['Step'] >= cutoff_step] 
+            else:
+                df_pre = df_sampled
+                df_post = pd.DataFrame(columns=df_sampled.columns)
+                
+            df_all_groups.append({
                 'color': group['color'],
                 'marker': group['marker'],
-                'df': df
+                'label': group['label'],
+                'df_pre': df_pre,
+                'df_post': df_post
             })
-        except Exception as e:
-            logging.error(f"加载组别数据失败 [{mgr.folder_name}]: {e}")
-    
-    if not processed_groups:
-        logging.error("未检测到可用的实验组数据，无法生成对比图。")
-        return
+        except Exception:
+            continue
 
-    # 渲染盐底辟形态演化图的核心颗粒指标
-    logging.info("正在生成盐底辟形态演化图...")
-    
-    plot_comparison('Width_Smooth', '盐体颗粒半宽 (Half-Width, m)', 'Evolution_Width', processed_groups)
-    plot_comparison('Relief_Smooth', '盐体颗粒地形起伏 (Relief, m)', 'Evolution_Relief', processed_groups)
-    plot_comparison('Aspect_Ratio_Smooth', '盐体宽高比 (Aspect Ratio)', 'Evolution_AspectRatio', processed_groups)
-    plot_comparison('Extruded_Area', '盐体颗粒出露面积 (Extruded Area, $m^2$)', 'Evolution_Area', processed_groups)
-    
-    logging.info(f"所有盐底辟形态演化图已导出至: {FINAL_OUTPUT_DIR}")
+    # 还原指标绘图顺序
+    plot_evolution_metric('Width_Smooth', 'Half-Width (m)', 'Multi_Evolution_HalfWidth', df_all_groups)
+    plot_evolution_metric('Relief_Smooth', 'Relief (m)', 'Multi_Evolution_Relief', df_all_groups)
+    plot_evolution_metric('Aspect_Ratio_Smooth', 'Aspect ratio', 'Multi_Evolution_AspectRatio', df_all_groups, ylim_max=MAX_ASPECT_RATIO)
+
+    logging.info(f"All comparison plots restored in {FINAL_OUTPUT_DIR}")
 
 if __name__ == '__main__':
     main()
