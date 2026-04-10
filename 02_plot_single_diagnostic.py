@@ -4,13 +4,15 @@ ZDEM Salt Kinematics 诊断图渲染器
 职责: 生成单组实验的运动学演化曲线与盐体剖面形态诊断矩阵。
 工程化改进: 接入 utils 学术样式、模块化渲染逻辑、提升出图质量。
 """
+# pyright: reportAny=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false
+
 import os
 import pickle
 import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import Dict, Any
+from typing import Any
 
 from config import *
 from utils import (
@@ -32,7 +34,7 @@ def render_diagnostic_plots(mgr: GroupDataManager):
     2. 盐体剖面形态演化矩阵（多宫格 Grid）。
     """
     if not os.path.exists(mgr.csv_path) or not os.path.exists(mgr.pkl_path):
-        logging.warning(f"缺少必要依赖文件，跳过组别 [{mgr.label}]。")
+        logging.warning(f"缺少必要依赖文件，跳过组别 [{mgr.folder_name}]。")
         return
 
     try:
@@ -40,11 +42,11 @@ def render_diagnostic_plots(mgr: GroupDataManager):
         with open(mgr.pkl_path, 'rb') as f:
             profiles = pickle.load(f)
     except Exception as e:
-        logging.error(f"读取数据失败 [{mgr.label}]: {e}")
+        logging.error(f"读取数据失败 [{mgr.folder_name}]: {e}")
         return
 
     # 1. 颗粒运动学演化轨迹图
-    fig, ax = plt.subplots(figsize=(8, 6))
+    _, ax = plt.subplots(figsize=(8, 6))
     
     # 区分盐体颗粒出露地表前后的演化阶段
     mask_break = df['Extruded_Area'] > 0
@@ -83,8 +85,8 @@ def render_diagnostic_plots(mgr: GroupDataManager):
     n = len(display_steps)
     cols = 3
     rows = (n + cols - 1) // cols
-    fig, axes = plt.subplots(rows, cols, figsize=(15, 3.5 * rows), squeeze=False)
-    axes = axes.flatten()
+    _, axes_array = plt.subplots(rows, cols, figsize=(15, 3.5 * rows), squeeze=False)
+    axes = axes_array.flatten()
 
     for i, step in enumerate(display_steps):
         ax = axes[i]
@@ -108,22 +110,24 @@ def render_diagnostic_plots(mgr: GroupDataManager):
         if not np.isnan(p['base_x']):
             ax.scatter(p['base_x'], p['base_y'], marker='o', s=40, color='#4C72B0', zorder=5, label='识别基点')
 
-        shortening = df[df['Step'] == step]['Shortening_km'].values[0]
+        shortening_vals = np.asarray(df[df['Step'] == step]['Shortening_km'])
+        shortening = float(shortening_vals[0]) if shortening_vals.size > 0 else 0.0
         ax.set_title(f"Step {step} | 缩短量: {shortening:.2f} km", fontsize=10)
         ax.set_xlim(0, MODEL_WIDTH)
         ax.set_ylim(MANUAL_PLOT_Y_MIN, MANUAL_PLOT_Y_MAX)
         ax.axis('off')
 
     # 隐藏多余的子图
-    for j in range(i + 1, len(axes)): 
+    for j in range(n, len(axes)): 
         axes[j].axis('off')
     
     plt.tight_layout()
     plt.savefig(os.path.join(mgr.base_dir, 'Salt_Profiles_Diagnostic_Grid.png'), dpi=200, bbox_inches='tight')
     plt.close()
-    logging.info(f"组别 [{mgr.label}] 颗粒运动学诊断图谱渲染完成。")
+    logging.info(f"组别 [{mgr.folder_name}] 颗粒运动学诊断图谱渲染完成。")
 
 def main():
+    """主程序。"""
     for group in EXPERIMENT_GROUPS:
         mgr = GroupDataManager(group)
         render_diagnostic_plots(mgr)

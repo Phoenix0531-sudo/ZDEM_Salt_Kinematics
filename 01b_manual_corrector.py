@@ -4,6 +4,8 @@ ZDEM Salt Kinematics 交互式质控与边界修正系统
 职责: 提供专家级的人机交互界面，用于手动校准自动算法可能误判的盐底辟边界基点。
 工程化改进: 接入统一日志、术语规范化、优化 UI 交互逻辑与平滑算法、适配最新的视觉风格。
 """
+# pyright: reportAny=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false
+
 import os
 import pickle
 import logging
@@ -12,34 +14,54 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 from matplotlib.gridspec import GridSpec
-from typing import List, Dict, Any
+from matplotlib.text import Text
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from typing import Any
 
 from config import *
 from utils import (
     apply_savgol_filter, 
     GroupDataManager, 
     ProfileData, 
-    setup_project_logging
+    setup_project_logging,
+    setup_academic_style
 )
 
-# 统一初始化日志
+# 统一初始化日志与学术绘图样式 (解决中文乱码)
 setup_project_logging()
+setup_academic_style()
 
 class ManualCorrectorApp:
     """
     交互式修正应用程序类。
     """
+    mgr: GroupDataManager
+    label: str
+    folder_name: str
+    df: pd.DataFrame
+    profiles: dict[int, ProfileData]
+    steps: list[int]
+    current_idx: int
+    fig: Figure
+    ax: Axes
+    ax_info: Axes
+    ax_slider: Axes
+    slider: Slider
+    info_text: Text
+
     def __init__(self, mgr: GroupDataManager):
         self.mgr = mgr
         self.label = mgr.label
+        self.folder_name = mgr.folder_name
         
         # 数据加载与完整性校验
         try:
             self.df = pd.read_csv(mgr.csv_path)
             with open(mgr.pkl_path, 'rb') as f:
-                self.profiles: Dict[int, ProfileData] = pickle.load(f)
+                self.profiles = pickle.load(f)
         except Exception as e:
-            logging.error(f"加载组别 [{self.label}] 缓存数据失败: {e}")
+            logging.error(f"加载组别 [{self.folder_name}] 缓存数据失败: {e}")
             raise
         
         self.steps = sorted(self.profiles.keys())
@@ -62,7 +84,7 @@ class ManualCorrectorApp:
         self.ax_slider.set_facecolor('#F8F9FA')
         
         # 标题与操作指南
-        self.fig.text(0.1, 0.95, f"专家级边界质控协议 | 实验组: {self.label}", 
+        self.fig.text(0.1, 0.95, f"专家级边界质控协议 | 实验组: {self.folder_name}", 
                      fontsize=14, fontweight='bold', color=COLOR_PALETTE['text_main'])
         self.fig.text(0.1, 0.91, "快捷键: [←/→] 切换时间步 | [S/Enter] 保存并同步曲线 | [点击图中颗粒表面] 修正基点位置", 
                      fontsize=9, color=COLOR_PALETTE['text_sub'])
@@ -70,31 +92,32 @@ class ManualCorrectorApp:
         # 交互滑块
         self.slider = Slider(
             ax=self.ax_slider,
-            label='时间演化步 (Step) ',
+            label='时间步 (Step) ',
             valmin=0,
             valmax=len(self.steps) - 1,
             valinit=0,
             valstep=1,
             color=COLOR_PALETTE['primary']
         )
-        self.slider.label.set_size(10)
+        self.slider.label.set_fontsize(10)
         
         # 信息看板文字初始化
         self.info_text = self.ax_info.text(0, 0.85, "", transform=self.ax_info.transAxes, 
-                                          verticalalignment='top', fontsize=10, linespacing=1.8,
-                                          fontfamily='monospace')
+                                          verticalalignment='top', fontsize=10, linespacing=1.8)
 
     def _bind_events(self):
         """绑定键盘与鼠标交互事件。"""
         self.slider.on_changed(self._on_slider_change)
+        # type: ignore
         self.fig.canvas.mpl_connect('button_press_event', self._on_click)
+        # type: ignore
         self.fig.canvas.mpl_connect('key_press_event', self._on_key)
 
-    def _on_slider_change(self, val):
+    def _on_slider_change(self, val: float):
         self.current_idx = int(val)
         self.update_plot()
 
-    def _on_key(self, event):
+    def _on_key(self, event: Any):
         if event.key == 'right':
             next_idx = min(self.current_idx + 1, len(self.steps) - 1)
             self.slider.set_val(next_idx)
@@ -104,7 +127,7 @@ class ManualCorrectorApp:
         elif event.key in ['enter', 's']:
             plt.close(self.fig)
 
-    def _on_click(self, event):
+    def _on_click(self, event: Any):
         """处理鼠标点击：实现盐体边缘基点的精确重定位。"""
         if event.inaxes == self.ax and event.xdata is not None:
             step = self.steps[self.current_idx]
@@ -115,7 +138,10 @@ class ManualCorrectorApp:
             x_surf = np.asarray(prof['x'])
             y_smooth = apply_savgol_filter(np.asarray(prof['y']), EXTRACT_SMOOTH_WINDOW)
             
-            idx = np.argmin(np.abs(x_surf - click_x))
+            if x_surf.size == 0:
+                return
+                
+            idx = int(np.argmin(np.abs(x_surf - click_x)))
             new_base_x = float(x_surf[idx])
             new_base_y = float(y_smooth[idx])
             
@@ -159,10 +185,10 @@ class ManualCorrectorApp:
             self.ax.fill_between(x, MANUAL_PLOT_Y_MIN, y_smooth, color=COLOR_PALETTE['primary'], alpha=0.12, zorder=2)
             
             # 2. 特征特征点标注
-            if not np.isnan(prof['top_x']):
+            if not np.isnan(prof.get('top_x', np.nan)):
                 self.ax.scatter(prof['top_x'], prof['top_y'], marker='*', s=220, color='#FFD700', 
                                edgecolors=COLOR_PALETTE['text_main'], zorder=6, label='盐丘主峰')
-            if not np.isnan(prof['base_x']):
+            if not np.isnan(prof.get('base_x', np.nan)):
                 self.ax.scatter(prof['base_x'], prof['base_y'], marker='o', s=120, color=COLOR_PALETTE['secondary'], 
                                edgecolors='white', linewidth=1.5, zorder=6, label='人工修正基点')
 
@@ -173,14 +199,24 @@ class ManualCorrectorApp:
         self.ax.set_ylabel("高程 (m)", color=COLOR_PALETTE['text_sub'])
         self.ax.spines['top'].set_visible(False)
         self.ax.spines['right'].set_visible(False)
-        self.ax.legend(loc='upper right', frameon=False, fontsize=9)
+        
+        # 仅在存在带标签的绘图元素时显示图例
+        handles, labels = self.ax.get_legend_handles_labels()
+        if labels:
+            self.ax.legend(loc='upper right', frameon=False, fontsize=9)
         
         # 4. 看板指标同步显示
         df_row = self.df[self.df['Step'] == step]
-        shortening = df_row['Shortening_km'].values[0] if not df_row.empty else 0
-        width = abs(prof['top_x'] - prof['base_x']) if not np.isnan(prof['base_x']) else 0
-        relief = prof['top_y'] - prof['base_y'] if not np.isnan(prof['base_x']) else 0
-        ar = relief / width if width > 0 else 0
+        shortening_km_series = df_row.get('Shortening_km')
+        if shortening_km_series is not None:
+             shortening_vals = np.asarray(shortening_km_series)
+             shortening = float(shortening_vals[0]) if shortening_vals.size > 0 else 0.0
+        else:
+             shortening = 0.0
+
+        width = abs(prof['top_x'] - prof['base_x']) if not np.isnan(prof.get('base_x', np.nan)) else 0.0
+        relief = prof['top_y'] - prof['base_y'] if not np.isnan(prof.get('base_x', np.nan)) else 0.0
+        ar = relief / width if width > 0 else 0.0
         
         info_str = (
             f"  [物理演化看板]\n"
@@ -212,7 +248,7 @@ class ManualCorrectorApp:
         self.df.to_csv(self.mgr.csv_path, index=False)
         with open(self.mgr.pkl_path, 'wb') as f:
             pickle.dump(self.profiles, f)
-        logging.info(f"实验组 [{self.label}] 的人工修正数据已同步，并完成二次曲线平滑。")
+        logging.info(f"实验组 [{self.folder_name}] 的人工修正数据已同步，并完成二次曲线平滑。")
 
 def main():
     """程序入口。"""
@@ -220,10 +256,10 @@ def main():
     for group in EXPERIMENT_GROUPS:
         mgr = GroupDataManager(group)
         if not os.path.exists(mgr.csv_path) or not os.path.exists(mgr.pkl_path):
-            logging.warning(f"跳过组别 [{mgr.label}]: 找不到提取的缓存文件。")
+            logging.warning(f"跳过组别 [{mgr.folder_name}]: 找不到提取的缓存文件。")
             continue
 
-        logging.info(f"正在加载实验组 [{mgr.label}] 数据...")
+        logging.info(f"正在加载实验组 [{mgr.folder_name}] 数据...")
         app = ManualCorrectorApp(mgr)
         app.run()
 

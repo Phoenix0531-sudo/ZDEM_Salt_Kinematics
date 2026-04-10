@@ -65,6 +65,7 @@ MIN_RELIEF_THRESHOLD: float = float(_require('MIN_RELIEF_THRESHOLD')) # 判定�
 SALT_GROUP_NAME: str = _require('SALT_GROUP_NAME') # 盐体在 ZDEM 中的组名
 PARTICLE_RADIUS: float = float(_require('PARTICLE_RADIUS')) # 单个颗粒的物理半径 (m)
 NUM_BINS: int = int(_require('NUM_BINS')) # 剖面扫描的分箱数量
+MAX_WORKERS: int = int(os.getenv('MAX_WORKERS', 4)) # 最大并行进程数 (控制内存占用)
 SMOOTHING_WINDOW: int = int(_require('SMOOTHING_WINDOW')) # 结果曲线的时间维平滑窗口
 EXTRACT_SMOOTH_WINDOW: int = int(_require('EXTRACT_SMOOTH_WINDOW')) # 空间维（包络线）平滑窗口
 FLANK_SLOPE_THRESHOLD: float = float(_require('FLANK_SLOPE_THRESHOLD')) # 识别基点时的坡度阈值

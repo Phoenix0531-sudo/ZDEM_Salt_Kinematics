@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
-from typing import Tuple, Optional, Any, Dict, List, TypedDict
+from typing import Any, TypedDict
 from config import CSV_FILENAME, PKL_FILENAME
 
 # ==========================================
@@ -57,30 +57,41 @@ class GroupDataManager:
     
     职责: 统一管理实验组的输入（.dat）、中间缓存（.pkl）与指标产物（.csv）路径。
     """
-    def __init__(self, group_config: Dict[str, str]):
+    config: dict[str, str]
+    label: str
+    base_dir: str
+    folder_name: str
+    data_dir: str
+    csv_path: str
+    pkl_path: str
+
+    def __init__(self, group_config: dict[str, str]):
         self.config = group_config
         self.label = group_config['label']
         self.base_dir = group_config['base_dir']
+        # 提取文件夹名作为控制台显示的唯一标识
+        self.folder_name = os.path.basename(self.base_dir.rstrip(os.sep))
         # ZDEM 原始数据通常存放于各组目录下的 data 子文件夹
         self.data_dir = os.path.join(self.base_dir, 'data')
         self.csv_path = os.path.join(self.base_dir, CSV_FILENAME)
         self.pkl_path = os.path.join(self.base_dir, PKL_FILENAME)
 
-    def get_dat_files(self) -> List[str]:
+    def get_dat_files(self) -> list[str]:
         """获取并按时间步排序的所有原始数据文件。"""
         import glob
         pattern = os.path.join(self.data_dir, '*.dat')
         files = glob.glob(pattern)
         return sorted(files, key=extract_step_from_filename)
 
-def setup_project_logging(level=logging.INFO):
+def setup_project_logging(level: int = logging.INFO):
     """
     配置全项目统一的工业级日志格式。
     """
     logging.basicConfig(
         level=level,
         format='%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%H:%M:%S'
+        datefmt='%H:%M:%S',
+        force=True # 确保配置生效
     )
 
 def setup_academic_style():
@@ -88,9 +99,14 @@ def setup_academic_style():
     配置全项目统一的学术级绘图样式 (Publication-ready)。
     优化了中文字体兼容性、轴线粗细及刻度方向。
     """
+    # 针对 Windows 环境优化的中文字体列表
+    chinese_fonts = ['Microsoft YaHei', 'SimHei', 'SimSun', 'Arial', 'sans-serif']
+    
     plt.rcParams.update({
-        'font.sans-serif': ['Microsoft YaHei', 'SimHei', 'Arial', 'sans-serif'],
-        'axes.unicode_minus': False,
+        'font.family': 'sans-serif',
+        'font.sans-serif': chinese_fonts,
+        'font.monospace': chinese_fonts, # 确保 monospace 也能显示中文
+        'axes.unicode_minus': False,     # 解决负号显示问题
         'axes.linewidth': 1.2,
         'font.size': 11,
         'axes.labelsize': 12,
@@ -121,7 +137,8 @@ def apply_savgol_filter(data: Any, window_len: int, polyorder: int = 3) -> np.nd
     if data is None:
         return np.array([])
     
-    arr = np.atleast_1d(np.asarray(data))
+    # 显式转换为数组以解决 Any 类型的属性访问问题
+    arr = np.atleast_1d(np.array(data))
     if arr.size < 3:
         return arr
 
@@ -129,7 +146,7 @@ def apply_savgol_filter(data: Any, window_len: int, polyorder: int = 3) -> np.nd
     if np.sum(mask) <= polyorder:
         return arr
         
-    actual_window = min(window_len, np.sum(mask))
+    actual_window = min(window_len, int(np.sum(mask)))
     if actual_window % 2 == 0:
         actual_window -= 1
     if actual_window <= polyorder:
@@ -143,14 +160,16 @@ def apply_savgol_filter(data: Any, window_len: int, polyorder: int = 3) -> np.nd
         pass
     return filtered_data
 
-def parse_zdem_dat_core(dat_path: str) -> Tuple[pd.DataFrame, pd.DataFrame, Optional[float]]:
+def parse_zdem_dat_core(dat_path: str) -> tuple[pd.DataFrame, pd.DataFrame, float | None]:
     """
     底层 ZDEM .dat 原始文本解析引擎。
     
     职责: 高效解析颗粒组别映射、颗粒物理属性坐标及推板(Wall)实时位置。
     """
-    group_data, coord_data = [], []
-    group_cols, coord_cols = [], []
+    group_data: list[list[str]] = []
+    coord_data: list[list[str]] = []
+    group_cols: list[str] = []
+    coord_cols: list[str] = []
     in_group_block, in_coord_block, in_wall_block = False, False, False
     wall_x = None
 
