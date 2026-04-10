@@ -1,6 +1,5 @@
 .vscode/
 __pycache__/
 *.pyc
-
-# 本地环境配置 (含敏感路径，禁止入库)
 .env
+npm-cache/

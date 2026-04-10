@@ -1,151 +1,84 @@
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnusedExpression=false, reportUnknownParameterType=false, reportAny=false, reportExplicitAny=false
+"""
+ZDEM Salt Kinematics 跨组联合对比工具 (V2.0)
+
+职责: 整合多个物理实验组的运动学指标，生成学术出版级的联合对比图谱。
+工程化改进: 接入 utils 学术样式、自适应多指标渲染、生成矢量 PDF 支持。
+"""
 import os
 import logging
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from typing import Any
-
-# ==========================================
-# 1. 全局配置与渲染器状态
-# ==========================================
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+from typing import List, Dict, Any
 
 from config import *
+from utils import setup_academic_style
 
-# ==========================================
-# 2. 综合多层级绘图核心
-# ==========================================
-def plot_evolution_metric(metric_col: str, y_label: str, file_prefix: str, df_all_groups: list[dict[str, Any]], ylim_max: float | None = None) -> None:
-    _, ax = plt.subplots(figsize=(8, 6))
-    ax.set_facecolor('white')  
-    ax.grid(False)
+# 初始化样式
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+setup_academic_style()
+
+def plot_comparison(metric: str, ylabel: str, filename: str, groups_data: List[Dict]):
+    """渲染多组指标对比图。"""
+    fig, ax = plt.subplots(figsize=(8, 6))
     
-    # 精简坐标轴边框
+    for g in groups_data:
+        df = g['df']
+        mask_break = df['Extruded_Area'] > 0
+        df_pre = df[~mask_break]
+        df_post = df[mask_break]
+        
+        # 绘制实线段 (Pre-extrusion)
+        ax.plot(df_pre['Shortening_km'], df_pre[metric], 
+                color=g['color'], marker=g['marker'], ms=6, lw=1.5, label=g['label'])
+        
+        # 绘制虚线段 (Post-extrusion)
+        if not df_post.empty:
+            last_pre = df_pre.tail(1) if not df_pre.empty else pd.DataFrame()
+            df_post_plot = pd.concat([last_pre, df_post])
+            ax.plot(df_post_plot['Shortening_km'], df_post_plot[metric], 
+                    color=g['color'], linestyle='--', marker=g['marker'], ms=5, lw=1.2)
+
+    ax.set_xlabel("Shortening (km)")
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(0, MAX_SHORTENING_KM)
+    if 'Aspect_Ratio' in metric: ax.set_ylim(0, MAX_ASPECT_RATIO)
+    
+    ax.legend(frameon=False, fontsize=10)
     ax.spines['top'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-    ax.spines['right'].set_visible(True)
-    ax.spines['bottom'].set_visible(True)
-    ax.yaxis.tick_right()
-    ax.yaxis.set_label_position("right")
-    ax.tick_params(axis='x', direction='in', top=False, bottom=True, length=6, width=1.5)
-    ax.tick_params(axis='y', direction='in', left=False, right=True, length=6, width=1.5)
-    
-    _ = ax.set_xlim(0, MAX_SHORTENING_KM)
-    if ylim_max is not None:
-        _ = ax.set_ylim(0, ylim_max)
-    _ = ax.margins(x=0.15)
-        
-    _ = ax.set_ylabel(y_label, weight='bold')
-    _ = ax.set_xlabel('Shortening (km)', weight='bold')
-
-    has_dashed_post = False
-    
-    for group_data in df_all_groups:
-        color = group_data['color']
-        marker = group_data['marker']
-        label = group_data['label']
-        df_pre = group_data['df_pre']
-        df_post = group_data['df_post']
-        
-        if not df_pre.empty and metric_col in df_pre.columns:
-            _ = ax.plot(df_pre['Shortening_km'], df_pre[metric_col], color=color, marker=marker, markersize=8, markerfacecolor=color, markeredgecolor=color, linestyle='-', linewidth=2, label=label)
-            
-        if not df_post.empty and metric_col in df_post.columns:
-            has_dashed_post = True
-            _ = ax.plot(df_post['Shortening_km'], df_post[metric_col], color=color, marker='', linestyle='--', linewidth=2)
-
-    handles, labels = ax.get_legend_handles_labels()
-    
-    if has_dashed_post:
-        proxy_line = Line2D([0], [0], color='gray', linestyle='--', linewidth=2, label='Salt extrusion (dashed lines)')
-        handles.append(proxy_line)
-        labels.append(proxy_line.get_label())
-    
-    # 无边框图例定位
-    _ = ax.legend(handles, labels, loc='upper left', frameon=False)
+    ax.spines['right'].set_visible(False)
     
     plt.tight_layout()
-    
-    plot_png = os.path.join(FINAL_OUTPUT_DIR, f'{file_prefix}.png')
-    plot_pdf = os.path.join(FINAL_OUTPUT_DIR, f'{file_prefix}.pdf')
-    
-    plt.savefig(plot_png, dpi=600, bbox_inches='tight')
-    plt.savefig(plot_pdf, dpi=600, bbox_inches='tight')
+    plt.savefig(os.path.join(FINAL_OUTPUT_DIR, f"{filename}.png"), dpi=300)
+    plt.savefig(os.path.join(FINAL_OUTPUT_DIR, f"{filename}.pdf"), dpi=300)
     plt.close()
-    
-    logging.info(f"Generated plot: {file_prefix}")
-
 
 def main():
-    if not os.path.exists(FINAL_OUTPUT_DIR): 
-        os.makedirs(FINAL_OUTPUT_DIR)
-        
-    plt.rcParams['font.family'] = 'sans-serif'
-    plt.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'DejaVu Sans']
-    plt.rcParams['font.size'] = 14
-    plt.rcParams['axes.linewidth'] = 1.5 
+    if not os.path.exists(FINAL_OUTPUT_DIR): os.makedirs(FINAL_OUTPUT_DIR)
     
-    df_all_groups = []
-    
-    num_groups = len(EXPERIMENT_GROUPS)
-    for index, group in enumerate(EXPERIMENT_GROUPS):
-        base_dir = group['base_dir']
+    processed_groups = []
+    for group in EXPERIMENT_GROUPS:
+        csv_path = os.path.join(group['base_dir'], CSV_FILENAME)
+        if not os.path.exists(csv_path): continue
         
-        # 记录当前组处理状态
-        logging.info(f"[{index + 1}/{num_groups}] Processing data group: {group['label']}")
-        
-        if not os.path.exists(base_dir):
-            logging.error(f"  FAILED: Path missing - '{base_dir}'")
-            continue
-            
-        csv_path = os.path.join(base_dir, 'kinematics_data.csv')
-        if not os.path.exists(csv_path):
-            logging.warning(f"  SKIP: Kinematics CSV not found in {base_dir}")
-            continue
-            
-        try:
-            df_sampled = pd.read_csv(csv_path)
-            if df_sampled.empty:
-                logging.warning(f"  SKIP: CSV is empty in {base_dir}")
-                continue
-        except Exception as e:
-            logging.error(f"  FAILED: Error reading CSV in {base_dir}: {e}")
-            continue
-            
-        logging.info(f"  SUCCESS: Loaded {len(df_sampled)} frames for {group['label']}")
-        
-        breakthrough_df = df_sampled[df_sampled['Extruded_Area'] > 0]
-        
-        if not breakthrough_df.empty:
-            cutoff_step = np.asarray(breakthrough_df['Step'])[0]
-            df_pre = df_sampled[df_sampled['Step'] <= cutoff_step]
-            df_post = df_sampled[df_sampled['Step'] >= cutoff_step] 
-        else:
-            df_pre = df_sampled
-            df_post = pd.DataFrame(columns=df_sampled.columns)
-            
-        df_all_groups.append({
+        df = pd.read_csv(csv_path)
+        processed_groups.append({
+            'label': group['label'],
             'color': group['color'],
             'marker': group['marker'],
-            'label': group['label'],
-            'df_pre': df_pre,
-            'df_post': df_post
+            'df': df
         })
+    
+    if not processed_groups:
+        logging.error("未发现可对比的实验数据。")
+        return
 
-    logging.info(f"Total groups successfully prepared for plotting: {len(df_all_groups)}")
-
-    # 逐指标渲染演化曲线对比图
-    plot_evolution_metric('Width_Smooth', 'Half-Width (m)', 'Multi_Evolution_HalfWidth', df_all_groups)
-    plot_evolution_metric('Relief_Smooth', 'Relief (m)', 'Multi_Evolution_Relief', df_all_groups)
-    plot_evolution_metric('Aspect_Ratio_Smooth', 'Aspect ratio', 'Multi_Evolution_AspectRatio', df_all_groups, ylim_max=MAX_ASPECT_RATIO)
-
-    logging.info(f"All multi-comparison plots generated successfully in {FINAL_OUTPUT_DIR}")
+    # 导出核心指标
+    plot_comparison('Width_Smooth', 'Half-Width (m)', 'Multi_Comparison_Width', processed_groups)
+    plot_comparison('Relief_Smooth', 'Relief (m)', 'Multi_Comparison_Relief', processed_groups)
+    plot_comparison('Aspect_Ratio_Smooth', 'Aspect Ratio', 'Multi_Comparison_AspectRatio', processed_groups)
+    
+    logging.info(f"全组对比图已输出至 {FINAL_OUTPUT_DIR}")
 
 if __name__ == '__main__':
     main()
