@@ -12,6 +12,7 @@ from typing import Any, Dict
 import numpy as np
 from dotenv import load_dotenv
 
+# 自动加载当前目录下的 .env
 load_dotenv()
 
 
@@ -45,7 +46,7 @@ CSV_FILENAME: str = _require('CSV_FILENAME')
 PKL_FILENAME: str = _require('PKL_FILENAME')
 
 # ==========================================
-# 2. 物理模型尺寸与绘图视口配置
+# 2. 物理模型尺寸与绘图视口配置 (m)
 # ==========================================
 MODEL_WIDTH: float = float(_require('MODEL_WIDTH'))
 MODEL_HEIGHT: float = float(_require('MODEL_HEIGHT'))
@@ -74,10 +75,11 @@ PARTICLE_AREA: float = np.pi * (PARTICLE_RADIUS ** 2) # 单个颗粒的横截面
 # ==========================================
 # 4. 视觉风格配置 (QA/QC 界面)
 # ==========================================
+# 若 .env 中未定义 UI 调色盘，则提供默认学术配色方案
 COLOR_PALETTE: Dict[str, str] = {
-    'primary': _require('COLOR_PRIMARY'),
-    'secondary': _require('COLOR_SECONDARY'),
-    'grid': _require('COLOR_GRID'),
-    'text_main': _require('COLOR_TEXT_MAIN'),
-    'text_sub': _require('COLOR_TEXT_SUB'),
+    'primary': os.getenv('COLOR_PRIMARY', '#3498db'),
+    'secondary': os.getenv('COLOR_SECONDARY', '#e67e22'),
+    'grid': os.getenv('COLOR_GRID', '#bdc3c7'),
+    'text_main': os.getenv('COLOR_TEXT_MAIN', '#2c3e50'),
+    'text_sub': os.getenv('COLOR_TEXT_SUB', '#7f8c8d'),
 }
