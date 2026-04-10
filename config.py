@@ -8,7 +8,7 @@ ZDEM Salt Kinematics 全局配置模块
 import os
 import json
 import sys
-from typing import Any
+from typing import Any, Dict
 import numpy as np
 from dotenv import load_dotenv
 
@@ -57,18 +57,27 @@ MAX_SHORTENING_KM: float = float(_require('MAX_SHORTENING_KM'))
 MAX_ASPECT_RATIO: float = float(_require('MAX_ASPECT_RATIO'))
 
 # ==========================================
-# 3. 离散元物理参数与算法阈值
+# 3. 离散元颗粒物理参数与算法阈值
 # ==========================================
-PUSHING_WALL_SIDE: str = _require('PUSHING_WALL_SIDE')
-MIN_RELIEF_THRESHOLD: float = float(_require('MIN_RELIEF_THRESHOLD'))
-SALT_GROUP_NAME: str = _require('SALT_GROUP_NAME')
-PARTICLE_RADIUS: float = float(_require('PARTICLE_RADIUS'))
-NUM_BINS: int = int(_require('NUM_BINS'))
-SMOOTHING_WINDOW: int = int(_require('SMOOTHING_WINDOW'))
-EXTRACT_SMOOTH_WINDOW: int = int(_require('EXTRACT_SMOOTH_WINDOW'))
-PRE_EXTRUSION_FRAMES: int = int(_require('PRE_EXTRUSION_FRAMES'))
-POST_EXTRUSION_FRAMES: int = int(_require('POST_EXTRUSION_FRAMES'))
-FLANK_SLOPE_THRESHOLD: float = float(_require('FLANK_SLOPE_THRESHOLD'))
+PUSHING_WALL_SIDE: str = _require('PUSHING_WALL_SIDE') # 推板所在侧 (Left/Right)
+MIN_RELIEF_THRESHOLD: float = float(_require('MIN_RELIEF_THRESHOLD')) # 判定为盐体的最小起伏阈值
+SALT_GROUP_NAME: str = _require('SALT_GROUP_NAME') # 盐体在 ZDEM 中的组名
+PARTICLE_RADIUS: float = float(_require('PARTICLE_RADIUS')) # 单个颗粒的物理半径 (m)
+NUM_BINS: int = int(_require('NUM_BINS')) # 剖面扫描的分箱数量
+SMOOTHING_WINDOW: int = int(_require('SMOOTHING_WINDOW')) # 结果曲线的时间维平滑窗口
+EXTRACT_SMOOTH_WINDOW: int = int(_require('EXTRACT_SMOOTH_WINDOW')) # 空间维（包络线）平滑窗口
+FLANK_SLOPE_THRESHOLD: float = float(_require('FLANK_SLOPE_THRESHOLD')) # 识别基点时的坡度阈值
 
-# 派生常量（由上述原子变量计算，非环境变量）
-PARTICLE_AREA: float = np.pi * (PARTICLE_RADIUS ** 2)
+# 派生常量
+PARTICLE_AREA: float = np.pi * (PARTICLE_RADIUS ** 2) # 单个颗粒的横截面积
+
+# ==========================================
+# 4. 视觉风格配置 (QA/QC 界面)
+# ==========================================
+COLOR_PALETTE: Dict[str, str] = {
+    'primary': _require('COLOR_PRIMARY'),
+    'secondary': _require('COLOR_SECONDARY'),
+    'grid': _require('COLOR_GRID'),
+    'text_main': _require('COLOR_TEXT_MAIN'),
+    'text_sub': _require('COLOR_TEXT_SUB'),
+}
