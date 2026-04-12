@@ -48,7 +48,11 @@ def detect_salt_kinematics(x_salt: np.ndarray, y_salt: np.ndarray) -> dict[str, 
     """
     核心演化算法：识别盐体颗粒群的主峰顶点与边界基点。
     """
-    res = {'top_x': np.nan, 'top_y': np.nan, 'base_x': np.nan, 'base_y': np.nan, 'width': np.nan, 'relief': np.nan}
+    res = {
+        'top_x': np.nan, 'top_y': np.nan, 'base_x': np.nan, 'base_y': np.nan, 
+        'width': np.nan, 'relief': np.nan,
+        'x_prof': np.array([]), 'y_prof': np.array([])
+    }
     if len(x_salt) < 10: 
         return res
         
@@ -59,6 +63,7 @@ def detect_salt_kinematics(x_salt: np.ndarray, y_salt: np.ndarray) -> dict[str, 
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
     valid = ~np.isnan(stat)
     x_prof, y_prof = bin_centers[valid], stat[valid]
+    res['x_prof'], res['y_prof'] = x_prof, y_prof
     y_smooth = apply_savgol_filter(y_prof, EXTRACT_SMOOTH_WINDOW)
     
     # 峰值定位
@@ -138,17 +143,10 @@ def process_single_file(dat_path: str, initial_right_wall: float | None) -> tupl
             'step': step, 
             'top_x': kin.get('top_x', np.nan), 'top_y': kin.get('top_y', np.nan),
             'base_x': kin.get('base_x', np.nan), 'base_y': kin.get('base_y', np.nan),
-            'x': np.array([]), 'y': np.array([])
+            'x': kin.get('x_prof', np.array([])), 
+            'y': kin.get('y_prof', np.array([]))
         }
         
-        if not salt_df.empty:
-            salt_x_arr = np.asarray(salt_df['x'])
-            salt_y_arr = np.asarray(salt_df['y'])
-            xb = np.linspace(float(np.min(salt_x_arr)), float(np.max(salt_x_arr)), NUM_BINS)
-            # type: ignore
-            yb, _, _ = binned_statistic(salt_x_arr, salt_y_arr, statistic='max', bins=len(xb))
-            profile_cache['x'], profile_cache['y'] = xb, yb
-            
         return step, res_row, profile_cache
 
     except Exception as e:

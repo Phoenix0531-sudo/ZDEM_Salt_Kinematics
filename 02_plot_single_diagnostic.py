@@ -15,7 +15,7 @@ from matplotlib.lines import Line2D
 from typing import Any
 
 from config import *
-from utils import setup_project_logging, GroupDataManager
+from utils import setup_project_logging, GroupDataManager, apply_savgol_filter
 
 # 初始化项目级日志
 setup_project_logging()
@@ -28,6 +28,7 @@ def render_diagnostic_plots(mgr: GroupDataManager):
     - Y 轴右置, 隐藏左/上边框
     - 出露前实线带圆点, 出露后虚线
     - 剖面图使用 lightpink 填充与 crimson 边界
+    - [统一渲染] 采用 apply_savgol_filter 动态平滑剖面 (与 01b 保持一致)
     """
     if not os.path.exists(mgr.csv_path) or not os.path.exists(mgr.pkl_path):
         logging.warning(f"跳过实验组 [{mgr.folder_name}]: 缺少必要的数据文件 (CSV/PKL)。")
@@ -130,9 +131,13 @@ def render_diagnostic_plots(mgr: GroupDataManager):
             ax_p = axes_prof[idx]
             p_data = profiles_data_store[step]
             
-            # 还原配色: lightpink 填充, crimson 边界线
-            ax_p.fill_between(p_data['x'], 0, p_data['y'], color='lightpink', alpha=0.8, label='Salt Body')
-            ax_p.plot(p_data['x'], p_data['y'], color='crimson', linewidth=2)
+            # [核心修复] 空间平滑一致性: 渲染前进行 SavGol 平滑
+            x_raw, y_raw = np.asarray(p_data['x']), np.asarray(p_data['y'])
+            y_smooth = apply_savgol_filter(y_raw, EXTRACT_SMOOTH_WINDOW)
+            
+            # 还原配色: lightpink 填充, crimson 边界线 (基于平滑后的 y_smooth)
+            ax_p.fill_between(x_raw, 0, y_smooth, color='lightpink', alpha=0.8, label='Salt Body')
+            ax_p.plot(x_raw, y_smooth, color='crimson', linewidth=2)
             
             # 还原关键点标注: 红色五角星 (主峰), 蓝色倒三角 (基点)
             ax_p.scatter([p_data['top_x']], [p_data['top_y']], color='red', marker='*', s=200, zorder=5)
