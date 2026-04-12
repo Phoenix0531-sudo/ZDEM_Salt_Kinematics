@@ -73,18 +73,36 @@ def detect_salt_kinematics(x_salt: np.ndarray, y_salt: np.ndarray) -> dict[str, 
     peak_idx = int(peaks[np.argmax(y_smooth[peaks])])
     res['top_x'], res['top_y'] = float(x_prof[peak_idx]), float(y_smooth[peak_idx])
     
-    # 边界基点定位 (坡度阈值法)
+    # 边界基点定位 (通用斜率状态机算法 - 自动适配推板方向)
     dy_dx = np.gradient(y_smooth, x_prof)
     abs_slope = np.abs(dy_dx)
     base_idx = 0
-    if PUSHING_WALL_SIDE.lower() == 'right':
-        # 从峰值向左扫描，寻找坡度趋于平缓且高度较低的点作为盐体边缘
-        depth_limit = float(np.min(y_smooth[:peak_idx]) + 50.0)
-        scan_range = range(peak_idx - 5, -1, -1)
-        for i in scan_range:
-            if np.mean(abs_slope[i:i+3]) < FLANK_SLOPE_THRESHOLD and y_smooth[i] <= depth_limit:
-                base_idx = i
-                break
+    scan_win = 3
+    
+    # 动态参数判定：基点永远在推板的另一侧
+    is_right_push = PUSHING_WALL_SIDE.lower() == 'right'
+    step = -1 if is_right_push else 1
+    # 扫描起始点设为离开峰值一段距离，终止点根据方向设为 0 或 数组末尾
+    start_idx = peak_idx + (step * scan_win)
+    stop_idx = -1 if is_right_push else (len(y_smooth) - scan_win)
+    
+    on_flank = False
+    # 统一扫描循环
+    for i in range(start_idx, stop_idx, step):
+        # 边界安全保护
+        if i < 0 or i + scan_win > len(abs_slope):
+            continue
+            
+        local_slope = np.mean(abs_slope[i : i + scan_win])
+        
+        # 状态 1: 识别进入侧翼 (离开平坦山顶)
+        if not on_flank and local_slope > FLANK_SLOPE_THRESHOLD:
+            on_flank = True
+        
+        # 状态 2: 识别踩到基底 (走出陡坡)
+        if on_flank and local_slope < FLANK_SLOPE_THRESHOLD:
+            base_idx = i
+            break
     
     res['base_x'], res['base_y'] = float(x_prof[base_idx]), float(y_smooth[base_idx])
     res['relief'] = float(res['top_y'] - res['base_y'])

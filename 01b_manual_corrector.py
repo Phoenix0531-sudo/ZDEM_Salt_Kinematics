@@ -138,7 +138,8 @@ class ManualCorrectorApp:
             x_surf = np.asarray(prof['x'])
             y_smooth = apply_savgol_filter(np.asarray(prof['y']), EXTRACT_SMOOTH_WINDOW)
             
-            if x_surf.size == 0:
+            # [修复] 采用 np.ndim 严密防御 0D 数组崩溃
+            if np.ndim(x_surf) == 0 or x_surf.size == 0:
                 return
                 
             idx = int(np.argmin(np.abs(x_surf - click_x)))
@@ -175,7 +176,8 @@ class ManualCorrectorApp:
         self.ax.clear()
         self.ax.grid(True, linestyle='--', alpha=0.4, color=COLOR_PALETTE['grid'], zorder=0)
 
-        if len(x) == 0:
+        # [修复] 采用 np.ndim 严密防御 0D 数组 (NaN) 导致的 len() 崩溃
+        if np.ndim(x) == 0 or x.size == 0:
             self.ax.text(0.5, 0.5, f"Step {step}: 颗粒数据缺失", transform=self.ax.transAxes, ha='center')
         else:
             y_smooth = apply_savgol_filter(y, EXTRACT_SMOOTH_WINDOW)
