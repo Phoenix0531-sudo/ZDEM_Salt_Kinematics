@@ -65,16 +65,20 @@ def plot_evolution_metric(metric_col: str, y_label: str, file_prefix: str, df_al
         
         # 阶段一：出露前 (实线带 Marker)
         if not df_pre.empty and metric_col in df_pre.columns:
-            ax.plot(df_pre['Shortening_km'], df_pre[metric_col], 
-                    color=color, marker=marker, markersize=8, 
-                    markerfacecolor=color, markeredgecolor=color, 
-                    linestyle='-', linewidth=2, label=label)
+            valid_pre = df_pre.dropna(subset=[metric_col])
+            if not valid_pre.empty:
+                ax.plot(valid_pre['Shortening_km'], valid_pre[metric_col], 
+                        color=color, marker=marker, markersize=8, 
+                        markerfacecolor=color, markeredgecolor=color, 
+                        linestyle='-', linewidth=2, label=label)
             
         # 阶段二：出露后 (虚线无 Marker)
         if not df_post.empty and metric_col in df_post.columns:
-            has_dashed_post = True
-            ax.plot(df_post['Shortening_km'], df_post[metric_col], 
-                    color=color, marker='', linestyle='--', linewidth=2)
+            valid_post = df_post.dropna(subset=[metric_col])
+            if not valid_post.empty:
+                has_dashed_post = True
+                ax.plot(valid_post['Shortening_km'], valid_post[metric_col], 
+                        color=color, marker='', linestyle='--', linewidth=2)
 
     handles, labels = ax.get_legend_handles_labels()
     
