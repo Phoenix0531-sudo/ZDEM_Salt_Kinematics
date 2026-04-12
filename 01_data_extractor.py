@@ -89,8 +89,9 @@ def detect_salt_kinematics(x_salt: np.ndarray, y_salt: np.ndarray) -> dict[str, 
     on_flank = False
     # 统一扫描循环
     for i in range(start_idx, stop_idx, step):
-        # 边界安全保护
-        if i < 0 or i + scan_win > len(abs_slope):
+        # 边界安全保护 (确保当前窗口及防抖探测窗口不越界)
+        check_range = [i, i + step, i + 2 * step]
+        if any(idx < 0 or idx + scan_win > len(abs_slope) for idx in check_range):
             continue
             
         local_slope = np.mean(abs_slope[i : i + scan_win])
@@ -99,10 +100,15 @@ def detect_salt_kinematics(x_salt: np.ndarray, y_salt: np.ndarray) -> dict[str, 
         if not on_flank and local_slope > FLANK_SLOPE_THRESHOLD:
             on_flank = True
         
-        # 状态 2: 识别踩到基底 (走出陡坡)
+        # 状态 2: 识别踩到基底 (走出陡坡 + 连续防抖判定)
         if on_flank and local_slope < FLANK_SLOPE_THRESHOLD:
-            base_idx = i
-            break
+            # 连续防抖验证：检查后续两个步长的斜率是否也保持平缓
+            slope_next1 = np.mean(abs_slope[i + step : i + step + scan_win])
+            slope_next2 = np.mean(abs_slope[i + 2 * step : i + 2 * step + scan_win])
+            
+            if slope_next1 < FLANK_SLOPE_THRESHOLD and slope_next2 < FLANK_SLOPE_THRESHOLD:
+                base_idx = i
+                break
     
     res['base_x'], res['base_y'] = float(x_prof[base_idx]), float(y_smooth[base_idx])
     res['relief'] = float(res['top_y'] - res['base_y'])
