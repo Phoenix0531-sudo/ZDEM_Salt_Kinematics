@@ -69,6 +69,8 @@ MAX_WORKERS: int = int(os.getenv('MAX_WORKERS', 4)) # 最大并行进程数 (控
 SMOOTHING_WINDOW: int = int(_require('SMOOTHING_WINDOW')) # 结果曲线的时间维平滑窗口
 EXTRACT_SMOOTH_WINDOW: int = int(_require('EXTRACT_SMOOTH_WINDOW')) # 空间维（包络线）平滑窗口
 FLANK_SLOPE_THRESHOLD: float = float(_require('FLANK_SLOPE_THRESHOLD')) # 识别基点时的坡度阈值
+PRE_EXTRUSION_FRAMES: int = int(_require('PRE_EXTRUSION_FRAMES')) # 出露前采样帧数
+POST_EXTRUSION_FRAMES: int = int(_require('POST_EXTRUSION_FRAMES')) # 出露后采样帧数
 
 # 派生常量
 PARTICLE_AREA: float = np.pi * (PARTICLE_RADIUS ** 2) # 单个颗粒的横截面积

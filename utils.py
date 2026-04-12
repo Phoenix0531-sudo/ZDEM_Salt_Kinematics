@@ -143,15 +143,17 @@ def apply_savgol_filter(data: Any, window_len: int, polyorder: int = 3) -> np.nd
         return arr
 
     mask = ~np.isnan(arr)
-    if np.sum(mask) <= polyorder:
+    n_valid = int(np.sum(mask))
+    if n_valid <= polyorder:
         return arr
         
-    actual_window = min(window_len, int(np.sum(mask)))
+    actual_window = min(window_len, n_valid)
     if actual_window % 2 == 0:
         actual_window -= 1
-    if actual_window <= polyorder:
-        actual_window = polyorder + 1
-        if actual_window % 2 == 0: actual_window += 1
+    
+    # Savitzky-Golay 约束：window_length > polyorder 且为正奇数
+    if actual_window <= polyorder or actual_window > n_valid:
+        return arr
         
     filtered_data = arr.copy()
     try:

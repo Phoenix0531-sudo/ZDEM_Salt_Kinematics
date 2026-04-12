@@ -179,20 +179,47 @@ def main():
                 if row: results.append(row)
                 if profile: profile_dict[step] = profile
 
-        # 数据持久化
+        # 数据持久化与采样逻辑
         if results:
-            df_res = pd.DataFrame(results).sort_values('Step')
-            # 缩短量换算为 km (假设单位为 m)
+            df_full = pd.DataFrame(results).sort_values('Step').reset_index(drop=True)
+            
+            # --- 任务 1: 地质演化分段采样 (出露前/后阶段拆分) ---
+            # 识别首次出露临界帧 (阈值设为 1.0m^2 以过滤微小数值波动)
+            extrusion_mask = df_full['Extruded_Area'] > 1.0
+            crit_idx = int(df_full.index[extrusion_mask][0]) if extrusion_mask.any() else len(df_full) - 1
+            
+            # 1. 出露前阶段等距采样 (包含临界帧)
+            idx_pre = np.linspace(0, crit_idx, PRE_EXTRUSION_FRAMES + 1, dtype=int)
+            # 2. 出露后阶段等距采样
+            idx_post = np.array([], dtype=int)
+            if crit_idx < len(df_full) - 1:
+                idx_post = np.linspace(crit_idx + 1, len(df_full) - 1, POST_EXTRUSION_FRAMES, dtype=int)
+            
+            # 合并、去重并保持顺序
+            sample_indices = np.unique(np.concatenate([idx_pre, idx_post]))
+            df_res = df_full.iloc[sample_indices].copy().reset_index(drop=True)
+            
+            # 同步过滤剖面缓存，确保 Step 数量严格对齐
+            sampled_steps = set(df_res['Step'])
+            filtered_profiles = {s: profile_dict[s] for s in sampled_steps if s in profile_dict}
+            
+            # 换算缩短量
             df_res['Shortening_km'] = df_res['Actual_Shortening'] / 1000.0
             
-            # 计算移动平均平滑曲线
+            # 计算移动平均平滑曲线 (基于采样后的时间序列)
             for col in ['Aspect_Ratio', 'Width', 'Relief']:
-                df_res[f'{col}_Smooth'] = df_res[col].rolling(window=int(SMOOTHING_WINDOW), min_periods=1, center=True).mean()
+                if col in df_res.columns:
+                    # 使用 min_periods=1 确保边缘不产生 NaN
+                    df_res[f'{col}_Smooth'] = df_res[col].rolling(
+                        window=int(SMOOTHING_WINDOW), min_periods=1, center=True
+                    ).mean()
             
             df_res.to_csv(mgr.csv_path, index=False)
             with open(mgr.pkl_path, 'wb') as f:
-                pickle.dump(profile_dict, f)
-            logging.info(f"组别 [{mgr.folder_name}] 数据提取完成 -> {mgr.csv_path}")
+                pickle.dump(filtered_profiles, f)
+            
+            logging.info(f"组别 [{mgr.folder_name}] 完成采样与提取: 原始 {len(df_full)} 帧 -> 采样 {len(df_res)} 帧")
+            logging.info(f"数据已存入 -> {mgr.csv_path} | {mgr.pkl_path}")
 
 if __name__ == '__main__':
     main()
