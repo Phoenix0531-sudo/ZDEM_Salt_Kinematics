@@ -47,6 +47,7 @@ def get_surface_profile(x_all: np.ndarray, y_all: np.ndarray, num_bins: int) -> 
 def detect_salt_kinematics(x_salt: np.ndarray, y_salt: np.ndarray) -> dict[str, Any]:
     """
     核心演化算法：识别盐体颗粒群的主峰顶点与边界基点。
+    采用“坑底探测 + 反弹判定”算法，精准识别边缘向斜 (Rim Syncline)。
     """
     res = {
         'top_x': np.nan, 'top_y': np.nan, 'base_x': np.nan, 'base_y': np.nan, 
@@ -64,49 +65,76 @@ def detect_salt_kinematics(x_salt: np.ndarray, y_salt: np.ndarray) -> dict[str, 
     valid = ~np.isnan(stat)
     x_prof, y_prof = bin_centers[valid], stat[valid]
     res['x_prof'], res['y_prof'] = x_prof, y_prof
+    
+    # 平滑处理：采用统一的环境平滑窗口 (EXTRACT_SMOOTH_WINDOW)
     y_smooth = apply_savgol_filter(y_prof, EXTRACT_SMOOTH_WINDOW)
     
     # 峰值定位
     peaks, _ = find_peaks(y_smooth, prominence=35.0)
-    if len(peaks) == 0: 
-        return res
-    peak_idx = int(peaks[np.argmax(y_smooth[peaks])])
-    res['top_x'], res['top_y'] = float(x_prof[peak_idx]), float(y_smooth[peak_idx])
+    if len(peaks) == 0:
+        peak_idx = int(np.argmax(y_smooth))
+    else:
+        peak_idx = int(peaks[np.argmax(y_smooth[peaks])])
     
-    # 边界基点定位 (通用斜率状态机算法 - 自动适配推板方向)
+    top_x, top_y = float(x_prof[peak_idx]), float(y_smooth[peak_idx])
+    res['top_x'], res['top_y'] = top_x, top_y
+    
+    # 基点定位参数 (回归一星期前的强逻辑)
+    regional_baseline = np.percentile(y_smooth, 10)
+    total_relief = top_y - regional_baseline
+    BOUNCE_MIN_HEIGHT = max(100.0, 0.05 * total_relief)
+    PATIENCE = 5
+    
     dy_dx = np.gradient(y_smooth, x_prof)
     abs_slope = np.abs(dy_dx)
-    base_idx = 0
-    scan_win = 3
     
-    # 动态参数判定：基点永远在推板的另一侧
+    # 判定扫描方向：基点永远在推板的另一侧 (Away from Pushing Wall)
     is_right_push = PUSHING_WALL_SIDE.lower() == 'right'
-    step = -1 if is_right_push else 1
-    # 扫描起始点设为离开峰值一段距离，终止点根据方向设为 0 或 数组末尾
-    start_idx = peak_idx + (step * scan_win)
-    stop_idx = -1 if is_right_push else (len(y_smooth) - scan_win)
     
-    on_flank = False
-    # 统一扫描循环
-    for i in range(start_idx, stop_idx, step):
-        # 边界安全保护 (确保当前窗口及防抖探测窗口不越界)
-        check_range = [i, i + step, i + 2 * step]
-        if any(idx < 0 or idx + scan_win > len(abs_slope) for idx in check_range):
-            continue
+    current_min_y = top_y
+    current_min_idx = peak_idx
+    consecutive_up = 0
+    base_idx = 0
+    
+    if is_right_push:
+        # 挤压墙在右，向左寻找稳定基点
+        for i in range(peak_idx - 1, -1, -1):
+            curr_y = y_smooth[i]
+            # 1. 坑底追踪逻辑
+            if curr_y <= current_min_y:
+                current_min_y = curr_y
+                current_min_idx = i
+                consecutive_up = 0
+            else:
+                consecutive_up += 1
             
-        local_slope = np.mean(abs_slope[i : i + scan_win])
-        
-        # 状态 1: 识别进入侧翼 (离开平坦山顶)
-        if not on_flank and local_slope > FLANK_SLOPE_THRESHOLD:
-            on_flank = True
-        
-        # 状态 2: 识别踩到基底 (走出陡坡 + 连续防抖判定)
-        if on_flank and local_slope < FLANK_SLOPE_THRESHOLD:
-            # 连续防抖验证：检查后续两个步长的斜率是否也保持平缓
-            slope_next1 = np.mean(abs_slope[i + step : i + step + scan_win])
-            slope_next2 = np.mean(abs_slope[i + 2 * step : i + 2 * step + scan_win])
+            # 2. 终止判定：反弹高度足够 或 斜率极低且地势平坦
+            if consecutive_up >= PATIENCE and (curr_y - current_min_y) > BOUNCE_MIN_HEIGHT:
+                base_idx = current_min_idx
+                break
             
-            if slope_next1 < FLANK_SLOPE_THRESHOLD and slope_next2 < FLANK_SLOPE_THRESHOLD:
+            # 辅助判定：局部平均斜率低且不再剧烈下降
+            local_avg_slope = np.mean(abs_slope[max(0, i-PATIENCE):i+1])
+            if local_avg_slope < FLANK_SLOPE_THRESHOLD:
+                base_idx = i
+                break
+    else:
+        # 挤压墙在左，向右寻找稳定基点
+        for i in range(peak_idx + 1, len(y_smooth)):
+            curr_y = y_smooth[i]
+            if curr_y <= current_min_y:
+                current_min_y = curr_y
+                current_min_idx = i
+                consecutive_up = 0
+            else:
+                consecutive_up += 1
+                
+            if consecutive_up >= PATIENCE and (curr_y - current_min_y) > BOUNCE_MIN_HEIGHT:
+                base_idx = current_min_idx
+                break
+                
+            local_avg_slope = np.mean(abs_slope[i:min(len(abs_slope), i+PATIENCE+1)])
+            if local_avg_slope < FLANK_SLOPE_THRESHOLD:
                 base_idx = i
                 break
     
@@ -114,8 +142,10 @@ def detect_salt_kinematics(x_salt: np.ndarray, y_salt: np.ndarray) -> dict[str, 
     res['relief'] = float(res['top_y'] - res['base_y'])
     res['width'] = float(abs(res['top_x'] - res['base_x']))
     
+    # 质量过滤
     if res['relief'] < MIN_RELIEF_THRESHOLD:
-        for k in res: res[k] = np.nan
+        for k in ['top_x', 'top_y', 'base_x', 'base_y', 'width', 'relief']:
+            res[k] = np.nan
     return res
 
 def process_single_file(dat_path: str, initial_right_wall: float | None) -> tuple[int, dict[str, Any] | None, dict[str, Any] | None]:
@@ -205,36 +235,38 @@ def main():
         if results:
             df_full = pd.DataFrame(results).sort_values('Step').reset_index(drop=True)
             
-            # --- 任务 1: 地质演化分段采样 (出露前/后阶段拆分) ---
-            # 识别首次出露临界帧 (阈值设为 1.0m^2 以过滤微小数值波动)
+            # --- 1. 全量数据平滑 (在采样前执行，利用完整时间序列) ---
+            # 换算缩短量
+            df_full['Shortening_km'] = df_full['Actual_Shortening'] / 1000.0
+            
+            # 计算移动平均平滑曲线 (基于全量数据，window 为帧数)
+            for col in ['Aspect_Ratio', 'Width', 'Relief']:
+                if col in df_full.columns:
+                    # 使用 min_periods=1 确保边缘不产生 NaN
+                    df_full[f'{col}_Smooth'] = df_full[col].rolling(
+                        window=int(SMOOTHING_WINDOW), min_periods=1, center=True
+                    ).mean()
+
+            # --- 2. 地质演化分段采样 (基于全量平滑后的数据) ---
+            # 识别首次出露临界帧 (阈值设为 1.0m^2)
             extrusion_mask = df_full['Extruded_Area'] > 1.0
-            crit_idx = int(df_full.index[extrusion_mask][0]) if extrusion_mask.any() else len(df_full) - 1
-            
-            # 1. 出露前阶段等距采样 (包含临界帧)
-            idx_pre = np.linspace(0, crit_idx, PRE_EXTRUSION_FRAMES + 1, dtype=int)
-            # 2. 出露后阶段等距采样
-            idx_post = np.array([], dtype=int)
-            if crit_idx < len(df_full) - 1:
+            if extrusion_mask.any():
+                crit_idx = int(df_full.index[extrusion_mask][0])
+                # 1. 出露前阶段等距采样 (包含临界帧)
+                idx_pre = np.linspace(0, crit_idx, PRE_EXTRUSION_FRAMES, dtype=int)
+                # 2. 出露后阶段等距采样
                 idx_post = np.linspace(crit_idx + 1, len(df_full) - 1, POST_EXTRUSION_FRAMES, dtype=int)
+                sample_indices = np.unique(np.concatenate([idx_pre, [crit_idx], idx_post]))
+            else:
+                # 全程未出露：全局等距采样
+                sample_indices = np.linspace(0, len(df_full) - 1, PRE_EXTRUSION_FRAMES, dtype=int)
             
-            # 合并、去重并保持顺序
-            sample_indices = np.unique(np.concatenate([idx_pre, idx_post]))
+            # 执行采样
             df_res = df_full.iloc[sample_indices].copy().reset_index(drop=True)
             
             # 同步过滤剖面缓存，确保 Step 数量严格对齐
             sampled_steps = set(df_res['Step'])
             filtered_profiles = {s: profile_dict[s] for s in sampled_steps if s in profile_dict}
-            
-            # 换算缩短量
-            df_res['Shortening_km'] = df_res['Actual_Shortening'] / 1000.0
-            
-            # 计算移动平均平滑曲线 (基于采样后的时间序列)
-            for col in ['Aspect_Ratio', 'Width', 'Relief']:
-                if col in df_res.columns:
-                    # 使用 min_periods=1 确保边缘不产生 NaN
-                    df_res[f'{col}_Smooth'] = df_res[col].rolling(
-                        window=int(SMOOTHING_WINDOW), min_periods=1, center=True
-                    ).mean()
             
             df_res.to_csv(mgr.csv_path, index=False)
             with open(mgr.pkl_path, 'wb') as f:
