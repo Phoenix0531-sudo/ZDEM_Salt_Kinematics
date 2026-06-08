@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from typing import Any
 
-from config import *
-from utils import setup_project_logging, GroupDataManager, apply_savgol_filter
+from zdem_salt_kinematics.config import *
+from zdem_salt_kinematics.utils import setup_project_logging, GroupDataManager, apply_savgol_filter
 
 # 初始化项目级日志
 setup_project_logging()

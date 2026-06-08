@@ -1,5 +1,35 @@
-.vscode/
+# --- Python 编译产物 ---
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# --- IDE 配置 ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS 文件 ---
+Thumbs.db
+.DS_Store
+
+# --- 虚拟环境 ---
 .env
+venv/
+.venv/
+
+# --- Jupyter 缓存 ---
+.ipynb_checkpoints/
+
+# --- 项目特有数据文件 ---
+*.dat
+*.pkl
 npm-cache/
+
+# --- 输出图件 ---
+*.png
+*.pdf

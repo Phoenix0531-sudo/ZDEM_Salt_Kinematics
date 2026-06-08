@@ -18,11 +18,11 @@ from scipy.signal import find_peaks
 from scipy.stats import binned_statistic
 from tqdm import tqdm
 
-from config import *
-from utils import (
-    extract_step_from_filename, 
-    apply_savgol_filter, 
-    parse_zdem_dat_core, 
+from zdem_salt_kinematics.config import *
+from zdem_salt_kinematics.utils import (
+    extract_step_from_filename,
+    apply_savgol_filter,
+    parse_zdem_dat_core,
     GroupDataManager,
     setup_project_logging
 )

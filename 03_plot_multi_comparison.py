@@ -17,8 +17,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from typing import Any
 
-from config import *
-from utils import setup_project_logging
+from zdem_salt_kinematics.config import *
+from zdem_salt_kinematics.utils import setup_project_logging
 
 # 初始化项目级日志
 setup_project_logging()

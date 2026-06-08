@@ -19,11 +19,11 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from typing import Any
 
-from config import *
-from utils import (
-    apply_savgol_filter, 
-    GroupDataManager, 
-    ProfileData, 
+from zdem_salt_kinematics.config import *
+from zdem_salt_kinematics.utils import (
+    apply_savgol_filter,
+    GroupDataManager,
+    ProfileData,
     setup_project_logging,
     setup_academic_style
 )
