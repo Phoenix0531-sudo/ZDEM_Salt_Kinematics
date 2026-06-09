@@ -25,6 +25,9 @@ venv/
 # --- Jupyter 缓存 ---
 .ipynb_checkpoints/
 
+# --- Claude 任务跟踪 ---
+tasks/
+
 # --- 项目特有数据文件 ---
 *.dat
 *.pkl
