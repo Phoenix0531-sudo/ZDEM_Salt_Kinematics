@@ -1,0 +1,85 @@
+{
+  "software_name": "ZDEM盐体运动学分析系统",
+  "project_root": "/app",
+  "instruction": "本文件只收集证据，不决定行业、功能或手册结构。请由模型阅读这些证据以及必要的项目源码后，另行编写业务理解模型稿。",
+  "documents": [
+    {
+      "path": "CHANGELOG.md",
+      "size": 158,
+      "headings": [
+        "Changelog",
+        "[1.0.0] - 2026-06-08",
+        "Added"
+      ],
+      "opening": "Changelog All notable changes to this project will be documented in this file. [1.0.0] - 2026-06-08 Added - Initial public release - first commit"
+    },
+    {
+      "path": "README.md",
+      "size": 12242,
+      "headings": [
+        "ZDEM Salt Kinematics · 盐体运动学分析系统",
+        "项目简介 | Overview",
+        "技术特性 | Technical Highlights",
+        "目录 | Table of Contents",
+        "数据准备 | Data Preparation",
+        "算法原理 | Algorithm",
+        "模块文档 | Module Reference",
+        "核心模块 | Core Modules",
+        "配置参数 | Configuration Parameters",
+        "数据脚本 | Data Scripts",
+        "快速开始 | Quick Start",
+        "环境准备 | Setup",
+        "标准工作流 | Standard Workflow",
+        "输出说明 | Output",
+        "控制台输出 | Console Output",
+        "图表输出 | Figure Output",
+        "安装依赖 | Installation",
+        "系统要求 | System Requirements",
+        "依赖列表 | Dependencies",
+        "项目结构 | Project Structure",
+        "引用 | Citation",
+        "许可证 | License"
+      ],
+      "opening": "<div align=\"center\" ZDEM Salt Kinematics · 盐体运动学分析系统 Automated Kinematic Analysis Toolkit for ZDEM Salt Tectonics Simulations ![License: MIT](LICENSE) ![Python]() ![NumPy]() ![SciPy]() </div --- 项目简介 Overview 本系统专为 ZDEM (Zhong-Discrete Element Method) 离散元模拟数据设计，用于自动化提取盐体（Salt Body）在构造缩短过程中的几何形态演化指标。系统采用分箱统计与自适应 Savitzky-Golay 平滑算法，从数万颗粒的原始数据中稳健识别盐丘主峰与边缘基点，计算宽度（Width）、起伏（Relief）与高宽比（Aspect Ratio）三大核心运动学指标，并生成符合学术出版标准的诊断图表。 This toolkit is designed for ZDEM (Zhong-Discrete Element Method) particle simulation data, providing automated extraction of geometric evolution indicators for salt bodies during tectonic shortening. Using binned statistics and adaptive Savitzky-Golay filtering, it robustly identifies the salt diapir crest and rim syncline base from raw particle data, computes three key kinematic metrics (width, relief, aspect ratio), and generates publication-ready diagnostic figures."
+    },
+    {
+      "path": "requirements.txt",
+      "size": 94,
+      "headings": [],
+      "opening": "numpy =1.21.0 pandas =1.3.0 matplotlib =3.4.0 scipy =1.7.0 tqdm =4.60.0 python-dotenv =0.19.0"
+    },
+    {
+      "path": "docs/index.md",
+      "size": 185,
+      "headings": [
+        "ZDEM Salt Kinematics",
+        "Quick Start",
+        "License"
+      ],
+      "opening": "ZDEM Salt Kinematics Salt kinematics analysis for ZDEM simulations. Quick Start License MIT License"
+    }
+  ],
+  "code_evidence": {
+    "project_name": "app",
+    "software_name_candidate": "app",
+    "frameworks": [],
+    "language": "Python",
+    "routes": [
+      "/"
+    ],
+    "feature_name_candidates": [],
+    "entry_files": [],
+    "page_files": [],
+    "component_files": [],
+    "api_files": [],
+    "run_command_candidates": [],
+    "package": {
+      "name": "",
+      "path": "",
+      "version": "V1.0",
+      "scripts": {},
+      "dependency_names": []
+    }
+  },
+  "external_research_notes": ""
+}

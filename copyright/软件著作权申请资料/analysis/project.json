@@ -1,0 +1,44 @@
+{
+  "project_root": "/app",
+  "project_name": "app",
+  "software_name_candidate": "app",
+  "package": {
+    "name": "",
+    "path": "",
+    "version": "V1.0",
+    "scripts": {},
+    "dependency_names": []
+  },
+  "frameworks": [],
+  "language": "Python",
+  "source": {
+    "file_count": 8,
+    "line_count": 1247,
+    "total_file_count": 8,
+    "total_line_count": 1247,
+    "extension_counts": {
+      ".py": 8
+    },
+    "category_counts": {
+      "source": 8
+    },
+    "categorized_files": {
+      "source": [
+        "01b_manual_corrector.py",
+        "01_data_extractor.py",
+        "02_plot_single_diagnostic.py",
+        "03_plot_multi_comparison.py",
+        "setup.py",
+        "zdem_salt_kinematics/config.py",
+        "zdem_salt_kinematics/utils.py",
+        "zdem_salt_kinematics/__init__.py"
+      ]
+    }
+  },
+  "routes": [
+    "/"
+  ],
+  "readme_excerpt": "<div align=\"center\">\n# ZDEM Salt Kinematics · 盐体运动学分析系统\n**Automated Kinematic Analysis Toolkit for ZDEM Salt Tectonics Simulations**\n[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)\n[![Python](https://img.shields.io/badge/Python-3.9+-blue?logo=python&logoColor=white)]()\n[![NumPy](https://img.shields.io/badge/Numpy-%3E%3D1.21-013243?logo=numpy)]()\n[![SciPy](https://img.shields.io/badge/SciPy-%3E%3D1.7-8CAAE6?logo=scipy)]()\n</div>\n---\n## 项目简介 | Overview\n本系统专为 ZDEM (Zhong-Discrete Element Method) 离散元模拟数据设计，用于自动化提取盐体（Salt Body）在构造缩短过程中的几何形态演化指标。系统采用分箱统计与自适应 Savitzky-Golay 平滑算法，从数万颗粒的原始数据中稳健识别盐丘主峰与边缘基点，计算宽度（Width）、起伏（Relief）与高宽比（Aspect Ratio）三大核心运动学指标，并生成符合学术出版标准的诊断图表。\n> This toolkit is designed for ZDEM (Zhong-Discrete Element Method) particle simulation data, providing automated extraction of geometric evolution indicators for salt bodies during tectonic shortening. Using binned statistics and adaptive Savitzky-Golay filtering, it robustly identifies the salt diapir crest and rim syncline base from raw particle data, computes three key kinematic metrics (width, relief, aspect ratio), and generates publication-ready diagnostic figures.\n---\n## 技术特性 | Technical Highlights\n| 特性 | Feature | 说明 |\n|------|---------|------|\n| **全自动提取** | Fully Automated Extraction | 批量解析 .dat 原始粒子数据，自动计算运动学关键点无人工干预 |\n| **专家级质控** | Expert QA/QC Interface | 基于 Matplotlib 的交互式 UI，支持鼠标点击手动校准算法误判的基点位置 |\n| **Rio Tinto 基点算法** | Pit-detect Base Algorithm | 融合坑底追踪与反弹判定机制，精准识别边缘向斜（Rim Syncline）边界 |\n| **学术级绘图** | Publication-ready Figures | 600 DPI 高精度输出，Y 轴右置学术风格，出露前实线 + 出露后虚线标识 |\n| **并发处理引擎** | Concurrent Processing | 基于 ProcessPoolExecutor 的多进程并行解析，自动管理大规模实验组比对 |\n| **全管线平滑一致性** | Consistent Smoothing Pipeline | 统一的空间维 SavGol 与时间维滚动平均滤波，确保提取-修正-渲染全链路一致性 |\n---\n## 目录 | Table of Contents\n- [数据准备 / Data Preparation](#数据准备--data-preparation)\n- [算法原理 / Algorithm](#算法原理--algorithm)\n- [模块文档 / Module Reference](#模块文档--module-reference)\n- [快速开始 / Quick Start](#快速开始--quick-start)\n- [输出说明 / Output](#输出说明--output)\n- [安装依赖 / Installation](#安装依赖--installation)\n- [项目结构 / Project Structure](#项目结构--project-structure)\n- [引用 / Citation](#引用--citation)\n- [许可证 / License](#许可证--license)\n---\n## 数据准备 | Data Preparation\n用户在运行本系统之前，需要确保 ZDEM 模拟数据已按实验组整理为以下目录结构：\n```\nFINAL_OUTPUT_DIR/\n├── GroupA/\n│   └── data/\n│       ├── 0001.dat\n│       ├── 0002.dat",
+  "run_command_candidates": [],
+  "feature_candidates": []
+}

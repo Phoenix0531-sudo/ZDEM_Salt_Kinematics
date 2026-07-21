@@ -1,0 +1,93 @@
+{
+  "project_root": "/app",
+  "selection_required": true,
+  "model_selection_required": true,
+  "confirmation_required": true,
+  "user_confirmed": true,
+  "target_pages": 60,
+  "lines_per_page": 50,
+  "target_lines": 3000,
+  "estimated_selected_lines": 1247,
+  "estimated_selected_pages": 25,
+  "estimated_all_candidate_lines": 1247,
+  "estimated_all_candidate_pages": 25,
+  "supplement_rule": "所有候选源码合计不足60页（仅25页），按规则选取全部源码文件。",
+  "confirmation_stage": "code-selection",
+  "next_action": "所有源码合计不足60页，已全选8个Python源文件。请确认后运行 confirm_stage.py --stage code-selection。",
+  "files": [
+    {
+      "path": "01_data_extractor.py",
+      "selected": true,
+      "line_count": 279,
+      "priority": 100,
+      "selection_tier": "supplement",
+      "evidence": "核心脚本：批量解析.dat原始粒子数据，提取盐体运动学指标（宽度、起伏、高宽比），实现分箱统计、峰值检测、坑底追踪算法",
+      "model_reason": "项目核心主脚本，包含表面包络线提取、盐体运动学检测等核心算法，最能体现软件科学计算核心功能"
+    },
+    {
+      "path": "01b_manual_corrector.py",
+      "selected": true,
+      "line_count": 269,
+      "priority": 100,
+      "selection_tier": "supplement",
+      "evidence": "核心脚本：基于Matplotlib的交互式QA/QC工具，支持鼠标点击修正基点坐标，S键保存并切换帧",
+      "model_reason": "软件的专家质控界面，实现交互式特征点修正功能，体现软件人机交互与质量控制的核心价值"
+    },
+    {
+      "path": "02_plot_single_diagnostic.py",
+      "selected": true,
+      "line_count": 170,
+      "priority": 100,
+      "selection_tier": "supplement",
+      "evidence": "核心脚本：生成单实验组的运动学演化轨迹图和盐体剖面多宫格诊断图，600 DPI学术级输出",
+      "model_reason": "学术级诊断绘图模块，体现软件可视化输出核心功能，直接将分析结果转化为可发表的图表"
+    },
+    {
+      "path": "03_plot_multi_comparison.py",
+      "selected": true,
+      "line_count": 162,
+      "priority": 100,
+      "selection_tier": "supplement",
+      "evidence": "核心脚本：跨实验组联合对比，生成宽度、起伏、高宽比的多组对比图，输出PNG+PDF双格式",
+      "model_reason": "多组对比分析模块，体现软件跨组比较和批量处理的核心能力，是科研分析的最终输出环节"
+    },
+    {
+      "path": "setup.py",
+      "selected": true,
+      "line_count": 29,
+      "priority": 100,
+      "selection_tier": "supplement",
+      "evidence": "包安装配置：定义包名zdem-salt-kinematics、版本1.0.0、依赖列表和分类标签",
+      "model_reason": "软件包元数据文件，包含版本号、依赖声明和项目分类信息，是软件发布的必备配置"
+    },
+    {
+      "path": "zdem_salt_kinematics/__init__.py",
+      "selected": true,
+      "line_count": 11,
+      "priority": 100,
+      "selection_tier": "supplement",
+      "evidence": "包初始化：声明包元数据（版本号、许可证）",
+      "model_reason": "Python包入口文件，声明软件版本和许可证等元信息"
+    },
+    {
+      "path": "zdem_salt_kinematics/config.py",
+      "selected": true,
+      "line_count": 88,
+      "priority": 100,
+      "selection_tier": "supplement",
+      "evidence": "配置引擎：从.env文件加载环境变量，执行类型转换与缺失校验，定义全部全局配置常量",
+      "model_reason": "软件配置加载引擎，管理所有运行参数（数据路径、实验组配置、算法参数），是系统运行的基础"
+    },
+    {
+      "path": "zdem_salt_kinematics/utils.py",
+      "selected": true,
+      "line_count": 239,
+      "priority": 100,
+      "selection_tier": "supplement",
+      "evidence": "通用工具：包含GroupDataManager、ProfileData类型、parse_zdem_dat_core解析器、savgol滤波、绘图样式和日志系统",
+      "model_reason": "核心工具模块，封装数据解析、数学滤波、类型定义和学术绘图样式等底层功能，被所有主脚本调用"
+    }
+  ],
+  "confirmation_note": "用户确认全选8个Python源文件，合计约1247行",
+  "confirmed_at": "2026-06-22T11:22:01+00:00"
+}

@@ -1,0 +1,95 @@
+{
+  "software_name": "ZDEM盐体运动学分析系统",
+  "version": "V1.0.0",
+  "project_root": "/app",
+  "file_count": 8,
+  "material_line_count": 1263,
+  "source_line_count": 1247,
+  "selected_source_line_count": 1247,
+  "lines_per_page": 50,
+  "total_pages": 26,
+  "target_pages": 60,
+  "available_candidate_line_count": 1263,
+  "available_candidate_pages": 26,
+  "supplement_status": "候选源码不足60页，按全部代码材料生成",
+  "mode": "all_under_60_pages",
+  "selection_file": "软件著作权申请资料/草稿/代码文件选择.json",
+  "outputs": [
+    "代码-全部.md"
+  ],
+  "files": [
+    {
+      "path": "01_data_extractor.py",
+      "source_line_count": 279,
+      "selected_line_start": 1,
+      "selected_line_end": 279,
+      "selected_line_count": 279,
+      "material_line_start": 1,
+      "material_line_end": 281
+    },
+    {
+      "path": "01b_manual_corrector.py",
+      "source_line_count": 269,
+      "selected_line_start": 1,
+      "selected_line_end": 269,
+      "selected_line_count": 269,
+      "material_line_start": 282,
+      "material_line_end": 552
+    },
+    {
+      "path": "02_plot_single_diagnostic.py",
+      "source_line_count": 170,
+      "selected_line_start": 1,
+      "selected_line_end": 170,
+      "selected_line_count": 170,
+      "material_line_start": 553,
+      "material_line_end": 724
+    },
+    {
+      "path": "03_plot_multi_comparison.py",
+      "source_line_count": 162,
+      "selected_line_start": 1,
+      "selected_line_end": 162,
+      "selected_line_count": 162,
+      "material_line_start": 725,
+      "material_line_end": 888
+    },
+    {
+      "path": "setup.py",
+      "source_line_count": 29,
+      "selected_line_start": 1,
+      "selected_line_end": 29,
+      "selected_line_count": 29,
+      "material_line_start": 889,
+      "material_line_end": 919
+    },
+    {
+      "path": "zdem_salt_kinematics/__init__.py",
+      "source_line_count": 11,
+      "selected_line_start": 1,
+      "selected_line_end": 11,
+      "selected_line_count": 11,
+      "material_line_start": 920,
+      "material_line_end": 932
+    },
+    {
+      "path": "zdem_salt_kinematics/config.py",
+      "source_line_count": 88,
+      "selected_line_start": 1,
+      "selected_line_end": 88,
+      "selected_line_count": 88,
+      "material_line_start": 933,
+      "material_line_end": 1022
+    },
+    {
+      "path": "zdem_salt_kinematics/utils.py",
+      "source_line_count": 239,
+      "selected_line_start": 1,
+      "selected_line_end": 239,
+      "selected_line_count": 239,
+      "material_line_start": 1023,
+      "material_line_end": 1263
+    }
+  ],
+  "safe_software_filename": "ZDEM盐体运动学分析系统"
+}

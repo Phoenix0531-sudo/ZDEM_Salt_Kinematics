@@ -2,6 +2,12 @@
 
 # ZDEM Salt Kinematics · 盐体运动学分析系统
 
+**Automated kinematic analysis toolkit for ZDEM salt tectonics simulations**
+
+[English](README.md) | [中文](README.zh-CN.md)
+
+![CI](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics/actions/workflows/ci.yml/badge.svg)
+
 **Automated Kinematic Analysis Toolkit for ZDEM Salt Tectonics Simulations**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

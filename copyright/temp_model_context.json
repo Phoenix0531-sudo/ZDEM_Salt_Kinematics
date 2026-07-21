@@ -1,0 +1,336 @@
+{
+  "software_name": "ZDEM Salt Kinematics",
+  "product_positioning": "面向构造地质学与盐构造研究领域，专为ZDEM离散元模拟数据设计的盐体运动学自动化分析系统。从数万颗粒的原始模拟数据中自动提取盐丘几何形态演化指标，生成符合学术出版标准的诊断图表。",
+  "industry": "构造地质学/盐构造研究/地球科学",
+  "target_users": [
+    "构造地质学研究人员",
+    "盐构造与盐丘演化研究学者",
+    "地球物理学与盆地模拟研究人员",
+    "石油地质与油气勘探工程技术人员"
+  ],
+  "core_value": "替代传统人工逐帧测量方式，实现盐体运动学指标的自动化批量提取与可视化，大幅提升构造缩短模拟数据的分析效率和分析结果的一致性。",
+  "business_features": [
+    "批量数据提取",
+    "智能特征点定位",
+    "交互式质控修正",
+    "学术级诊断绘图",
+    "多实验组联合比对"
+  ],
+  "business_feature_details": {
+    "批量数据提取": "系统按实验组批量解析.dat格式的离散元粒子数据文件，通过水平分箱(binned_statistic)提取模型表面包络线，结合峰值检测(find_peaks)和坑底追踪算法定位盐丘主峰与边缘向斜基点，计算宽度、起伏、高宽比三大运动学指标，结果存储为CSV表格和PKL缓存文件。",
+    "智能特征点定位": "采用坑底探测+反弹判定(Rio Tinto)算法，从峰顶向推板反方向扫描，追踪局部极小值点，当连续反弹超过阈值时锁定基点位。辅以局部斜率阈值作为终止条件，确保边缘向斜边界识别的准确性。",
+    "交互式质控修正": "系统逐帧展示盐体粒子分布与算法识别的特征点叠加图。用户通过鼠标左键点击盐体表面可重新定位基点，右键撤销上一步操作，按S键或Enter键保存修正结果并自动进入下一帧。",
+    "学术级诊断绘图": "空间维采用自适应窗口Savitzky-Golay滤波器平滑包络线，时间维采用中心化滚动平均滤波演化曲线。图表输出采用Y轴右置学术风格、出露前实线+出露后虚线标识、600 DPI高精度渲染。",
+    "多实验组联合比对": "基于ProcessPoolExecutor多进程并行解析各组数据，自动汇聚所有实验组的运动学演化轨迹，生成PNG位图与PDF矢量图两种格式的联合对比图，支持自定义组标签、颜色与标记样式。"
+  },
+  "operation_flow": [
+    "配置环境变量：复制.env.example为.env，设置数据目录路径和实验组配置",
+    "运行数据提取：执行01_data_extractor.py，批量解析.dat文件，生成CSV指标表和PKL缓存",
+    "人工质控修正：执行01b_manual_corrector.py，交互式检查并修正特征点定位",
+    "单组诊断出图：执行02_plot_single_diagnostic.py，生成演化曲线和剖面诊断图",
+    "多组联合对比：执行03_plot_multi_comparison.py，生成跨实验组对比图"
+  ],
+  "application_purpose": "为构造地质学与盐构造研究提供盐体运动学指标的自动化定量分析工具，替代传统人工逐帧测量的低效方式",
+  "main_functions": "本软件是面向构造地质学与盐构造研究的盐体运动学自动化分析工具。用户将ZDEM离散元模拟的.dat格式粒子数据按实验组整理后，软件可批量解析所有时刻步的原始数据，自动提取盐丘剖面的几何形态演化指标。软件核心处理流程分为四个步骤：第一步，数据提取——通过水平分箱统计与自适应Savitzky-Golay平滑，从数万颗粒中提取模型表面包络线，应用峰值检测和坑底追踪算法定位盐丘主峰与边缘向斜基点，计算宽度、起伏和高宽比三大运动学指标，结果存储为CSV表格和PKL缓存文件；第二步，交互式质控——通过Matplotlib交互界面逐帧展示算法识别结果，用户可鼠标点击修正算法误判的基点位置，系统自动保存修正记录；第三步，单组诊断——为每个实验组生成600 DPI的运动学演化轨迹图和盐体剖面多宫格诊断图；第四步，多组比对——自动汇聚所有实验组数据，生成宽度、起伏、高宽比的联合对比图，同时输出PNG和PDF矢量格式。",
+  "technical_characteristics": "基于Python科学计算生态(NumPy/SciPy/Pandas/Matplotlib)，采用分箱统计与自适应Savitzky-Golay滤波算法，融合坑底探测与反弹判定机制精准定位边界基点，支持多进程并行处理大规模实验组，输出600 DPI学术级图表",
+  "software_technical_option": "应用软件",
+  "software_category": "应用软件",
+  "manual_sections": [
+    {
+      "title": "一、相关文档",
+      "intent": "列出与本操作手册配套的其他技术文档，方便审核员查阅。",
+      "paragraphs": ["本手册为 ZDEM Salt Kinematics 盐体运动学分析系统的操作说明，配套文档如下："],
+      "include_feature_overview": false,
+      "include_operation_modules": false,
+      "include_operation_flow": false
+    },
+    {
+      "title": "二、说明",
+      "intent": "用通俗语言解释软件是什么、给谁用、解决什么问题，不涉及技术实现。",
+      "paragraphs": [
+        "ZDEM Salt Kinematics 是一套盐体运动学自动分析软件。构造地质学研究者在进行盐构造离散元模拟实验后，会得到大量按时间步编号的粒子坐标数据文件。传统方式需要研究者逐帧人工测量盐丘的高度和宽度，工作量大且结果依赖操作者主观判断。本软件将这一过程自动化：用户只需按实验组整理好数据，运行软件即可自动提取每个时刻的盐体几何形态指标，并生成可供论文直接使用的诊断图表。软件还提供了交互式质控界面，允许用户对算法自动识别结果进行检查和微调。"
+      ],
+      "include_feature_overview": false,
+      "include_operation_modules": false,
+      "include_operation_flow": false
+    },
+    {
+      "title": "三、功能特点",
+      "intent": "列出软件的主要功能，让审核员了解软件能做什么。",
+      "paragraphs": [
+        "本软件的核心功能包括：批量解析离散元模拟原始数据，自动识别盐丘主峰顶点与边缘向斜边界；计算每帧的盐体宽度、起伏和高宽比三个运动学指标；提供交互式质控界面，允许用户通过鼠标点击修正算法自动识别的基点；生成高分辨率的演化轨迹图和剖面诊断图；支持多个实验组的联合比对，输出可用于学术论文的对比图。"
+      ],
+      "include_feature_overview": true,
+      "include_operation_modules": false,
+      "include_operation_flow": false
+    },
+    {
+      "title": "四、系统要求",
+      "intent": "说明软件运行所需的硬件和软件环境。",
+      "paragraphs": ["运行本软件需要满足以下环境条件。"],
+      "include_feature_overview": false,
+      "include_operation_modules": false,
+      "include_operation_flow": false
+    },
+    {
+      "title": "五、环境配置",
+      "intent": "说明安装依赖和配置文件的方法，这是用户使用软件前的第一步。",
+      "paragraphs": [
+        "使用本软件前，用户需要安装Python 3.9或更高版本，并通过pip install -r requirements.txt命令安装所需的科学计算依赖包。软件通过.env配置文件管理运行参数，用户需要将模板文件.env.example复制为.env，然后根据实际数据存放位置修改其中的目录路径，并在EXPERIMENT_GROUPS字段中声明各个实验组的名称、子目录路径和图表样式。配置完成后即可按标准工作流程使用软件。"
+      ],
+      "include_feature_overview": false,
+      "include_operation_modules": false,
+      "include_operation_flow": false
+    },
+    {
+      "title": "六、数据准备",
+      "intent": "说明数据的目录结构要求。",
+      "paragraphs": [
+        "软件要求ZDEM模拟数据按实验组整理。用户需要在总数据目录下为每个实验组创建独立的子文件夹，每个子文件夹内必须包含一个data子目录，其中存放按时间步编号的.dat格式原始粒子数据文件（如0001.dat、0002.dat等）。文件名中的数字编号代表模拟的时间顺序。"
+      ],
+      "include_feature_overview": false,
+      "include_operation_modules": false,
+      "include_operation_flow": false
+    },
+    {
+      "title": "七、常见问题解答",
+      "intent": "列出用户使用中可能遇到的典型问题。",
+      "paragraphs": [],
+      "include_feature_overview": false,
+      "include_operation_modules": false,
+      "include_operation_flow": false
+    },
+    {
+      "title": "八、术语表",
+      "intent": "解释软件涉及的领域专业术语。",
+      "paragraphs": [],
+      "include_feature_overview": false,
+      "include_operation_modules": false,
+      "include_operation_flow": false
+    }
+  ],
+  "manual_modules": [
+    {
+      "title": "环境配置",
+      "evidence": ["README.md 第127-135行 快速开始-环境准备", "requirements.txt", ".env.example", "setup.py"],
+      "purpose": "安装Python依赖包并完成运行参数配置，是使用本软件的前置步骤。",
+      "usage": "用户首次使用软件时需要配置运行环境。用户在终端中执行安装命令，然后编辑配置文件指定数据目录路径和实验组信息。",
+      "entry": "用户在终端中进入软件根目录，首先执行pip install -r requirements.txt安装依赖，然后将.env.example复制为.env并编辑。",
+      "visible_elements": [
+        "终端命令行界面",
+        ".env配置文件（文本格式，包含FINAL_OUTPUT_DIR数据目录路径、EXPERIMENT_GROUPS实验组定义等参数）"
+      ],
+      "operation_steps": [
+        "在终端中进入软件根目录",
+        "执行pip install -r requirements.txt安装科学计算依赖",
+        "将模板文件.env.example复制为.env",
+        "使用文本编辑器打开.env文件，修改FINAL_OUTPUT_DIR为实际数据存放路径",
+        "在EXPERIMENT_GROUPS字段中按JSON格式配置实验组的名称、子目录、标签和图表样式",
+        "保存并关闭.env文件"
+      ],
+      "validation_rules": [
+        "FINAL_OUTPUT_DIR必须指向实际存在的数据目录",
+        "每个实验组的子目录下必须存在data子文件夹",
+        "Python版本须为3.9或更高"
+      ],
+      "feedback": [
+        "终端执行pip install成功后显示各依赖包的安装完成信息",
+        "配置文件保存后软件在后续运行时自动读取，运行日志中会显示已加载的实验组名称和路径"
+      ],
+      "screenshot": "终端中pip install执行完成的输出截图，以及.env配置文件内容截图"
+    },
+    {
+      "title": "数据提取",
+      "evidence": ["01_data_extractor.py", "README.md 第139-145行 Step 1", "zdem_salt_kinematics/utils.py parse_zdem_dat_core函数"],
+      "purpose": "批量解析各实验组的.dat原始粒子数据，自动计算每帧的运动学指标并输出CSV表格和缓存文件。",
+      "usage": "用户完成环境配置后，需要从原始模拟数据中提取盐体运动学指标。执行本步骤后，软件自动读取所有实验组的数据文件，计算每帧的盐体宽度、起伏和高宽比。",
+      "entry": "用户在终端中执行python 01_data_extractor.py命令启动数据提取过程。",
+      "visible_elements": [
+        "终端显示处理进度条（tqdm进度条）",
+        "终端日志输出，格式为HH:MM:SS [LEVEL] message",
+        "终端显示每组的文件数量、采样进度和采样后帧数"
+      ],
+      "operation_steps": [
+        "在终端中执行python 01_data_extractor.py命令",
+        "软件自动遍历.env中配置的所有实验组",
+        "对每个实验组的data目录，按文件名编号顺序读取所有.dat文件",
+        "软件解析粒子坐标数据，通过分箱统计提取表面包络线",
+        "应用峰值检测算法定位盐丘顶点，应用坑底追踪算法定位基点",
+        "计算宽度、起伏和高宽比三个运动学指标",
+        "对时间序列指标进行滚动平均平滑处理",
+        "将结果存储为CSV文件（kinematics_data.csv）和PKL缓存文件（profiles_cache.pkl）"
+      ],
+      "validation_rules": [
+        "每个实验组的data目录必须存在且包含至少一个.dat文件",
+        ".dat文件必须为ZDEM离散元模拟输出的标准格式",
+        ".env文件中的目录路径必须有效"
+      ],
+      "feedback": [
+        "终端实时显示tqdm进度条，反映当前处理的组别和文件数量",
+        "日志输出每组处理完成信息，显示原始帧数和采样后帧数",
+        "处理完成后在实验组目录下生成kinematics_data.csv和profiles_cache.pkl文件"
+      ],
+      "screenshot": "终端中执行数据提取时的日志和进度条输出截图"
+    },
+    {
+      "title": "交互式质控修正",
+      "evidence": ["01b_manual_corrector.py", "README.md 第147-153行 Step 2"],
+      "purpose": "以交互式图形界面逐帧展示算法识别结果，支持用户通过鼠标点击修正基点位置。",
+      "usage": "数据提取完成后，研究者需要检查算法自动识别的基点是否准确。如果某些帧的基点定位有偏差，用户可以通过质控界面手动修正。",
+      "entry": "用户在终端中执行python 01b_manual_corrector.py命令，软件弹出Matplotlib交互窗口。",
+      "visible_elements": [
+        "Matplotlib图形窗口，显示当前帧的盐体粒子分布散点图",
+        "算法自动识别的峰顶位置（标记点）",
+        "算法自动识别的基点位置（标记点）",
+        "底部显示当前帧编号、快捷键提示和操作状态"
+      ],
+      "operation_steps": [
+        "执行python 01b_manual_corrector.py启动交互界面",
+        "软件自动加载第一帧的数据和算法识别结果",
+        "在图形窗口中查看盐体粒子分布和特征点标注",
+        "如需修正基点：鼠标左键点击盐体表面任意位置，基点自动更新为点击坐标",
+        "如需撤销修正：鼠标右键点击恢复上一步操作",
+        "检查无误后按S键或Enter键保存当前帧的修正结果",
+        "软件自动加载下一帧，重复检查和修正过程",
+        "所有帧处理完毕后关闭窗口，修正后的数据自动保存到缓存文件"
+      ],
+      "validation_rules": [
+        "修正前需确保数据提取步骤已执行完成，存在profiles_cache.pkl文件",
+        "点击修正时应在盐体粒子分布区域内点击"
+      ],
+      "feedback": [
+        "鼠标左键点击后基点标记立即移动到新位置",
+        "右下角状态区域显示当前帧号和操作提示",
+        "按S键后显示'已保存'提示并自动切换到下一帧",
+        "全部帧处理完成后窗口自动关闭"
+      ],
+      "screenshot": "质控界面中一帧的截图，展示盐体粒子散点图、峰顶和基点标记、操作提示区域"
+    },
+    {
+      "title": "单组诊断绘图",
+      "evidence": ["02_plot_single_diagnostic.py", "README.md 第155-161行 Step 3"],
+      "purpose": "为每个实验组生成运动学演化轨迹图和盐体剖面多宫格诊断图。",
+      "usage": "数据提取和质控完成后，研究者需要生成可视化图表用于分析盐体演化规律和论文发表。",
+      "entry": "用户在终端中执行python 02_plot_single_diagnostic.py命令。",
+      "visible_elements": [
+        "终端显示各组绘图进度日志",
+        "输出目录中出现PNG格式图表文件"
+      ],
+      "operation_steps": [
+        "执行python 02_plot_single_diagnostic.py命令",
+        "软件读取每个实验组的kinematics_data.csv数据",
+        "生成运动学演化轨迹图（Kinematic_Evolution_Diagnostic.png），展示该组的高宽比随时间变化",
+        "生成盐体剖面多宫格诊断图（Salt_Profiles_Diagnostic_Grid.png），以多宫格形式展示不同时刻步的盐体轮廓和特征点",
+        "图表自动保存到对应实验组的输出目录中"
+      ],
+      "validation_rules": [
+        "每个实验组目录下需存在kinematics_data.csv数据文件",
+        "图表输出目录需有写入权限"
+      ],
+      "feedback": [
+        "终端日志显示每个实验组的绘图进度",
+        "完成后在实验组目录中可查看生成的PNG图表文件"
+      ],
+      "screenshot": "生成的Kinematic_Evolution_Diagnostic.png演化轨迹图示例截图"
+    },
+    {
+      "title": "多组联合比对",
+      "evidence": ["03_plot_multi_comparison.py", "README.md 第163-169行 Step 4"],
+      "purpose": "将所有实验组的运动学指标绘制到同一张对比图中，支持跨组比较分析。",
+      "usage": "当用户有多个实验组（如不同缩短速率、不同盐层厚度等参数对比）时，需要将各组结果放到一起比较，观察参数变化对盐体演化的影响。",
+      "entry": "用户在终端中执行python 03_plot_multi_comparison.py命令。",
+      "visible_elements": [
+        "终端显示各组数据加载和绘图进度日志",
+        "输出目录中出现多组对比的PNG和PDF图表文件"
+      ],
+      "operation_steps": [
+        "执行python 03_plot_multi_comparison.py命令",
+        "软件自动加载所有实验组的kinematics_data.csv数据",
+        "在同一坐标系中绘制各组的高宽比演化曲线，使用不同颜色和标记区分",
+        "在同一坐标系中绘制各组的起伏演化曲线",
+        "在同一坐标系中绘制各组的宽度演化曲线",
+        "每张图同时输出高分辨率PNG（位图）和PDF（矢量图）两种格式"
+      ],
+      "validation_rules": [
+        "至少需要两个实验组的数据才能生成有意义的对比图",
+        "各实验组的kinematics_data.csv文件必须存在"
+      ],
+      "feedback": [
+        "终端日志显示当前处理的数据组和绘图完成信息",
+        "完成后在输出目录中可查看Multi_Evolution系列图表文件"
+      ],
+      "screenshot": "生成的多组高宽比对比图(Multi_Evolution_AspectRatio.png)示例截图"
+    }
+  ],
+  "system_requirements": [
+    {
+      "item": "操作系统",
+      "minimum": "Windows 10 / macOS 11 / Linux (内核4.x+)",
+      "recommended": "Windows 11 / macOS 14+ / Ubuntu 22.04+"
+    },
+    {
+      "item": "Python版本",
+      "minimum": "Python 3.9",
+      "recommended": "Python 3.11+"
+    },
+    {
+      "item": "内存",
+      "minimum": "4 GB",
+      "recommended": "8 GB以上（处理万级粒子数据时建议16 GB）"
+    },
+    {
+      "item": "硬盘空间",
+      "minimum": "500 MB（不含模拟数据）",
+      "recommended": "2 GB以上"
+    }
+  ],
+  "faq": [
+    {
+      "question": "软件支持哪些格式的输入数据？",
+      "answer": "本软件专为ZDEM离散元模拟输出的.dat格式粒子数据设计。每个.dat文件包含该时刻步所有粒子的X坐标和Y坐标（或其他等效字段），格式为纯文本。用户需要将数据按实验组组织到data子目录中，文件按模拟时间步编号命名（如0001.dat）。"
+    },
+    {
+      "question": "如何处理算法自动识别的基点不准确的情况？",
+      "answer": "运行01b_manual_corrector.py进入交互式质控界面。在图形窗口中，点击盐体表面任意位置即可重新设定基点坐标，右键点击可撤销上一步操作。修正完成后按S键或Enter键保存当前帧结果，软件会自动加载下一帧。建议对所有关键帧进行检查。"
+    },
+    {
+      "question": "为什么运行时提示找不到配置文件？",
+      "answer": "软件通过.env文件读取配置参数。首次使用前需要将.env.example文件复制为.env，然后修改其中的FINAL_OUTPUT_DIR为实际数据存放路径。确保.env文件位于软件根目录下。"
+    },
+    {
+      "question": "生成的图表分辨率可以调整吗？",
+      "answer": "单组诊断图默认以600 DPI输出，剖面诊断图以300 DPI输出，多组对比图同时输出PNG位图和PDF矢量图。如需调整分辨率，可以在.env配置文件中设置相关参数。"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "ZDEM",
+      "definition": "中-离散元方法(Zhong-Discrete Element Method)，一种用于模拟地质构造变形过程的数值方法，通过大量离散粒子模拟岩层的受力变形行为。"
+    },
+    {
+      "term": "盐丘(Salt Diapir)",
+      "definition": "地下盐层在构造挤压或重力作用下向上隆起形成的穹隆状构造体。盐丘的几何形态演化是构造地质学的重要研究内容。"
+    },
+    {
+      "term": "主峰(Crest)",
+      "definition": "盐丘剖面上的最高点，即盐体向上隆起的最顶端位置，是运动学分析的关键参考点。"
+    },
+    {
+      "term": "基点/边缘向斜(Rim Syncline)",
+      "definition": "盐丘两侧的凹陷最低点，标志着盐体隆起的横向边界。准确识别基点是计算盐体宽度和起伏的前提。"
+    },
+    {
+      "term": "高宽比(Aspect Ratio)",
+      "definition": "盐体的起伏高度与半宽的比值，是衡量盐丘形态演化阶段的核心无量纲指标。高宽比的变化反映盐体从低缓隆起到高耸刺穿的演化过程。"
+    },
+    {
+      "term": "Savitzky-Golay滤波",
+      "definition": "一种基于局部多项式拟合的数据平滑方法，在保持信号峰形特征的同时有效滤除高频噪声。本软件用它平滑盐体剖面轮廓线。"
+    }
+  ],
+  "model_review_notes": [
+    "项目是Python CLI科研工具而非Web应用，manual_modules按4个核心脚本对应的工作流程模块组织，加上环境配置和数据准备两个前置模块。",
+    "操作手册面向构造地质学研究者，使用地质学专业术语但避免代码实现细节。",
+    "软件全称建议使用中文'ZDEM盐体运动学分析系统'，与README标题一致。版本号为1.0.0（来自setup.py）。"
+  ]
+}
