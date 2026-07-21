@@ -272,3 +272,7 @@ This project is open-sourced under the **MIT License**. See [LICENSE](LICENSE) f
 **Made for the structural geology and salt tectonics research community**
 
 </div>
+
+## License
+
+[MIT](LICENSE) — free for commercial use with attribution.
