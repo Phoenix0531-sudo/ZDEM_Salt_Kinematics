@@ -1,67 +1,71 @@
 # ZDEM Salt Kinematics
 
-**Salt geometry and kinematics metrics from ZDEM with publication-grade plots.**
+**Salt geometry & kinematics metrics from ZDEM dumps — surface envelope, rim-syncline style base points, multi-step comparison plots.**
 
 [English](README.md) | [中文](README.zh-CN.md)
 
 [![CI](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics/actions/workflows/ci.yml/badge.svg)](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Post-process metrics for lab reports and papers.
+Post-process toolkit for **salt-tectonics DEM campaigns**. Companion to [ZDEM Particle Tracker](https://github.com/Phoenix0531-sudo/ZDEM_ParticleTracker) (interactive picking) — this repo focuses on **batch geometry extraction and publication-oriented figures**.
 
 ## Preview
 
 ![ZDEM Salt Kinematics](docs/screenshots/preview.png)
 
-## Features
+## Pipeline (real scripts)
 
-- Salt kinematics oriented metrics
-- Publication-grade plotting helpers
-- Pure pyproject packaging + UV lock CI
-- Real pytest smoke
+| Script | Role |
+|--------|------|
+| `01_data_extractor.py` | Parallel parse of ZDEM frames → kinematics table / pickle |
+| `01b_manual_corrector.py` | Manual correction pass when auto peaks fail |
+| `02_plot_single_diagnostic.py` | Single-run diagnostic figures |
+| `03_plot_multi_comparison.py` | Multi-model comparison panels |
+| `zdem_salt_kinematics/` | `config.py`, `utils.py` (parse core, Savitzky–Golay, logging, group manager) |
 
-## Get started
+### Core algorithms in `01_data_extractor.py`
 
-### Install
+- `get_surface_profile(x, y, num_bins)` — `scipy.stats.binned_statistic(..., statistic='max')` for a surface envelope
+- `detect_salt_kinematics(x_salt, y_salt)` — peak / rim-syncline oriented metrics: `top_x/y`, `base_x/y`, `width`, `relief`, profile arrays
+- Uses `find_peaks`, optional smoothing via `apply_savgol_filter`
+- `parse_zdem_dat_core` + `GroupDataManager` for color/group oriented particle subsets
+- `concurrent.futures` + `tqdm` for multi-frame extraction
+- Project logging via `setup_project_logging()`
+
+Outputs land under configurable dirs / `demo_output/` samples.
+
+## Install
 
 ```bash
 git clone https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics.git
 cd ZDEM_Salt_Kinematics
-uv sync
+pip install -e .
+# or: uv sync
+# deps: numpy, pandas, matplotlib, scipy, tqdm, python-dotenv
 ```
 
-### Usage
+Python **>= 3.9**.
+
+## Run
 
 ```bash
+python 01_data_extractor.py
+python 02_plot_single_diagnostic.py
+python 03_plot_multi_comparison.py
 pytest tests/
 ```
 
-## Project layout
+Tune paths and binning in `zdem_salt_kinematics/config.py` / `.env` style settings.
 
-```
-zdem_salt_kinematics/
-demo_output/  tests/
-```
+## Related
 
-## Related ZDEM tools
+ParticleTracker (interactive) · Area Conservation · Bond Fracture · DFN · Model Editor
 
-| Repo | Role |
-|------|------|
-| [ZDEM_ParticleTracker](https://github.com/Phoenix0531-sudo/ZDEM_ParticleTracker) | Interactive particle tracking + true-radius render |
-| [ZDEM_Salt_Kinematics](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics) | Salt geometry / kinematics extraction and plots |
-| [ZDEM_Area_Conservation](https://github.com/Phoenix0531-sudo/ZDEM_Area_Conservation) | Area-conservation / triangulation analysis |
-| [ZDEM_Bond_Fracture](https://github.com/Phoenix0531-sudo/ZDEM_Bond_Fracture) | Bond damage series + visualizer |
-| [ZDEM_Damage_Thresholds](https://github.com/Phoenix0531-sudo/ZDEM_Damage_Thresholds) | Damage thresholds and energy plots |
-| [ZDEM_DFN](https://github.com/Phoenix0531-sudo/ZDEM_DFN) | Discrete fracture network generator |
-| [ZDEM_Model_Editor](https://github.com/Phoenix0531-sudo/ZDEM_Model_Editor) | Model file visual editor |
-| [ZDEM_Archiver](https://github.com/Phoenix0531-sudo/ZDEM_Archiver) | Archive / purge bulky dumps |
-| [ZDEM3D_WEB](https://github.com/Phoenix0531-sudo/ZDEM3D_WEB) | CAE cloud UI (Django + React + VTK.js) |
+## Scope
 
-
-## Notes
-
-Companion to ParticleTracker for post-process kinematics.
+- **In:** salt body envelope metrics, batch extraction, paper-style plots
+- **Out:** live GUI picking (use ParticleTracker), full rheology inversion
 
 ## License
 
-MIT. Free for commercial use with attribution where applicable. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
