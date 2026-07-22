@@ -1,102 +1,70 @@
 # ZDEM Salt Kinematics
 
-**ZDEM 盐构造运动学自动分析工具包**
+**从 ZDEM 结果提取盐体几何与运动学指标**
 
 [English](README.md) | [中文](README.zh-CN.md)
 
 ![CI](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
-ZDEM 盐构造运动学自动分析工具包。
+面向**盐构造**类 ZDEM 实验的流水线：从 `.dat` 提取盐体几何 / 演化指标，必要时人工校正，再出单次诊断图与多工况对比图。
 
-> 作者：[Phoenix0531-sudo](https://github.com/Phoenix0531-sudo) · 欢迎学习、二次开发与**商业使用**，请保留本仓库署名与许可证声明。
+## 为什么做这个
 
-## 技术栈
+盐体运动学写作需要在大量时步上稳定提取（峰、厚度趋势、滤波序列）。编号脚本让顺序一目了然。
 
-Python · 科研分析
+## 功能
 
-## 功能特性
+- `01_data_extractor.py` — 可并行提取 + 日志  
+- `01b_manual_corrector.py` — 自动几何失败时的人工修正  
+- `02_plot_single_diagnostic.py` — 单实验诊断图  
+- `03_plot_multi_comparison.py` — 跨实验对比  
+- 共享库 `zdem_salt_kinematics/`  
 
-- 数据提取与校正
-- 单工况诊断图
-- 多方案对比图
-
-## 快速开始
+## 安装
 
 ```bash
 git clone https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics.git
 cd ZDEM_Salt_Kinematics
-```
-
-```bash
+pip install -r requirements.txt
 pip install -e .
-python 01_data_extractor.py
 ```
 
-更完整的英文说明见 [README.md](README.md)。
+## 使用
 
-## 仓库结构（摘要）
-
-```
-ZDEM_Salt_Kinematics/
-├─ .github/
-├─ copyright/
-├─ demo_output/
-├─ docs/
-├─ zdem_salt_kinematics/
-├─ zdem_salt_kinematics.egg-info/
-├─ 01_data_extractor.py
-├─ 01b_manual_corrector.py
-├─ 02_plot_single_diagnostic.py
-├─ 03_plot_multi_comparison.py
-├─ CHANGELOG.md
-├─ Dockerfile
-├─ LICENSE
-├─ README.md
-├─ README.zh-CN.md
-├─ requirements.txt
-├─ setup.py
-```
-
-## 测试
+推荐顺序：
 
 ```bash
-pip install pytest
-pytest -q
+python 01_data_extractor.py
+python 01b_manual_corrector.py   # 仅必要时
+python 02_plot_single_diagnostic.py
+python 03_plot_multi_comparison.py
 ```
 
-仓库内 `tests/` 至少包含 smoke 测试；有完整测试套件时以 CI 为准。
+运行前在 `zdem_salt_kinematics/config.py`（及脚本常量）中配置路径与组定义。
 
-## CI
+## 目录结构
 
-GitHub Actions（`push` / `pull_request`）会：
+```
+01_*.py 02_*.py 03_*.py
+zdem_salt_kinematics/
+demo_output/
+tests/
+```
 
-- 安装依赖（requirements / pyproject）
-- 运行 `pytest`（**硬失败**）
-- 尽力做语法/结构检查
-
-## ZDEM 工具族
-
-同一作者维护的 ZDEM / DEM 配套开源工具：
+## 相关 ZDEM 工具
 
 | 仓库 | 作用 |
 |------|------|
-| [ZDEM_ParticleTracker](https://github.com/Phoenix0531-sudo/ZDEM_ParticleTracker) | VisPy 颗粒追踪（真实半径圆盘、永久 ID） |
-| [ZDEM_Archiver](https://github.com/Phoenix0531-sudo/ZDEM_Archiver) | 时间步冗余数据安全清理 |
-| [ZDEM_Area_Conservation](https://github.com/Phoenix0531-sudo/ZDEM_Area_Conservation) | Delaunay 覆盖面积随加载变化 |
-| [ZDEM_Bond_Fracture](https://github.com/Phoenix0531-sudo/ZDEM_Bond_Fracture) | 粘结损伤时序与 ROI |
-| [ZDEM_Damage_Thresholds](https://github.com/Phoenix0531-sudo/ZDEM_Damage_Thresholds) | 损伤演化与破裂阈值 |
-| [ZDEM_DFN](https://github.com/Phoenix0531-sudo/ZDEM_DFN) | 离散裂隙网络生成 |
+| [ZDEM_ParticleTracker](https://github.com/Phoenix0531-sudo/ZDEM_ParticleTracker) | 交互式颗粒追踪 + VisPy 真实半径渲染 |
+| [ZDEM_Salt_Kinematics](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics) | 盐体几何/运动学提取与出图 |
+| [ZDEM_Area_Conservation](https://github.com/Phoenix0531-sudo/ZDEM_Area_Conservation) | 面积守恒 / 三角网格分析 |
+| [ZDEM_Bond_Fracture](https://github.com/Phoenix0531-sudo/ZDEM_Bond_Fracture) | 粘结损伤序列 + 桌面/CLI |
+| [ZDEM_Damage_Thresholds](https://github.com/Phoenix0531-sudo/ZDEM_Damage_Thresholds) | 损伤阈值与应变–能量图 |
+| [ZDEM_DFN](https://github.com/Phoenix0531-sudo/ZDEM_DFN) | ZDEM 离散裂隙网络生成 |
 | [ZDEM_Model_Editor](https://github.com/Phoenix0531-sudo/ZDEM_Model_Editor) | 模型文件可视化编辑 |
-| [ZDEM_Salt_Kinematics](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics) | 盐体运动学分析 |
-| [ZDEM3D_WEB](https://github.com/Phoenix0531-sudo/ZDEM3D_WEB) | 三维 Web CAE 前端 |
-
-典型链路：**Model_Editor / DFN → ZDEM 计算 → Archiver（清盘）→ ParticleTracker / Bond / Area / Salt / Damage（分析）**。
-
+| [ZDEM_Archiver](https://github.com/Phoenix0531-sudo/ZDEM_Archiver) | 大体量模拟结果归档清理 |
+| [ZDEM3D_WEB](https://github.com/Phoenix0531-sudo/ZDEM3D_WEB) | CAE 云端界面（Django + React + VTK.js） |
 ## 许可证
 
-[MIT](LICENSE) — 可自由使用、修改、分发与**商用**，需保留版权与许可声明（提及本仓库 / 作者即可）。
-
-## 关于
-
-维护者：[Phoenix0531-sudo](https://github.com/Phoenix0531-sudo)
+MIT。可在署名前提下商用。见 [LICENSE](LICENSE)。
