@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 from typing import Any, TypedDict
-from config import CSV_FILENAME, PKL_FILENAME
+from zdem_salt_kinematics.config import CSV_FILENAME, PKL_FILENAME
 
 # ==========================================
 # 1. 类型定义 (Type Definitions)
