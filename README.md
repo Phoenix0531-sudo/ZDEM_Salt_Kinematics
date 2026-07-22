@@ -1,55 +1,47 @@
 # ZDEM Salt Kinematics
 
-**Salt geometry & kinematic metrics from ZDEM dumps**
+**Salt geometry & kinematics metrics from ZDEM — publication-grade plots.**
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-![CI](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics/actions/workflows/ci.yml/badge.svg)
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+[![CI](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics/actions/workflows/ci.yml/badge.svg)](https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 
-Pipeline for **salt-tectonics** style ZDEM experiments: extract salt body geometry / evolution metrics from `.dat` dumps, optional manual correction, then single-run diagnostics and multi-run comparison plots.
+Salt geometry & kinematics metrics from ZDEM — publication-grade plots.
 
-## Why this exists
+Geometry evolution. Lab-report ready figures.
 
-Salt kinematics papers need consistent extraction (peaks, thickness trends, filtered series) across many timesteps. Numbered scripts keep the order obvious.
 
 ## Features
 
-- `01_data_extractor.py` — parallel-friendly extraction + logging
-- `01b_manual_corrector.py` — human correction pass when auto geometry fails
-- `02_plot_single_diagnostic.py` — one experiment diagnostic figures
-- `03_plot_multi_comparison.py` — cross-experiment comparison
-- Shared library under `zdem_salt_kinematics/`
+- 🧂 Salt kinematics oriented metrics
+- 🖼️ Publication-grade plotting helpers
+- 📦 Pure `pyproject` packaging + UV lock CI
+- 🧪 Real pytest smoke
 
-## Install
+## Get started
+
+### Install
 
 ```bash
 git clone https://github.com/Phoenix0531-sudo/ZDEM_Salt_Kinematics.git
 cd ZDEM_Salt_Kinematics
-pip install -r requirements.txt
-pip install -e .
+uv sync   # or pip install -e .
 ```
 
-## Usage
-
-Typical order:
+### Usage
 
 ```bash
-python 01_data_extractor.py
-python 01b_manual_corrector.py   # only if needed
-python 02_plot_single_diagnostic.py
-python 03_plot_multi_comparison.py
+python -m zdem_salt_kinematics --help  # if console script present
+pytest tests/
 ```
-
-Configure paths and group definitions in `zdem_salt_kinematics/config.py` (and script constants) before running.
 
 ## Project layout
 
 ```
-01_*.py 02_*.py 03_*.py
 zdem_salt_kinematics/
-demo_output/          # example figures when present
-tests/
+demo_output/  tests/  docs/
 ```
 
 ## Related ZDEM tools
@@ -65,6 +57,11 @@ tests/
 | [ZDEM_Model_Editor](https://github.com/Phoenix0531-sudo/ZDEM_Model_Editor) | Model file visual editor |
 | [ZDEM_Archiver](https://github.com/Phoenix0531-sudo/ZDEM_Archiver) | Purge / archive bulky simulation dumps |
 | [ZDEM3D_WEB](https://github.com/Phoenix0531-sudo/ZDEM3D_WEB) | CAE cloud UI (Django + React + VTK.js) |
+
+## Notes
+
+Companion to ParticleTracker for post-process kinematics, not interactive picking.
+
 ## License
 
-MIT. Free for commercial use with attribution. See [LICENSE](LICENSE).
+MIT. Free for commercial use with attribution where applicable. See [LICENSE](LICENSE).
